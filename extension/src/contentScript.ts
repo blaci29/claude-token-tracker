@@ -11,6 +11,7 @@
  * developed in later iterations.
  */
 
+
 // Listen for network events or override fetch/XHR here
 
 // Placeholder: send a test message to the background script

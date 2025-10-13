@@ -5,6 +5,7 @@
  * preferences. Saves to chrome.storage and retrieves stored values on load.
  */
 
+
 document.addEventListener('DOMContentLoaded', () => {
   const charsPerTokenInput = document.getElementById('charsPerToken') as HTMLInputElement;
   const fourHourLimitInput = document.getElementById('fourHourLimit') as HTMLInputElement;

@@ -47,3 +47,7 @@ extension/
   assets (HTML/CSS/icons) into `dist/` and output the finished extension.
 * **Future** – Integrate with the Claude API for exact token counts, add
   auto‑tuning and additional export formats as described in the development plan.
+
+cd extension
+chmod +x build.sh
+./build.sh

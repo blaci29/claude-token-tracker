@@ -5,6 +5,7 @@
  * in the popup UI. Provides navigation to the options page.
  */
 
+
 document.addEventListener('DOMContentLoaded', () => {
   const statsContainer = document.getElementById('stats-container');
   const openOptions = document.getElementById('openOptions');

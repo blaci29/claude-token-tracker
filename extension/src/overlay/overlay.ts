@@ -6,6 +6,7 @@
  * toggled on/off via settings.
  */
 
+
 // Create overlay element
 const overlay = document.createElement('div');
 overlay.id = 'ctt-overlay';
