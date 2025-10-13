@@ -98,6 +98,11 @@ async function handleMessage(message, sender) {
       chrome.runtime.openOptionsPage();
       return { success: true };
     
+    case 'OPEN_STATS_PAGE':
+      const statsUrl = chrome.runtime.getURL('src/stats/stats.html');
+      await chrome.tabs.create({ url: statsUrl });
+      return { success: true };
+    
     default:
       throw new Error(`Unknown message type: ${type}`);
   }

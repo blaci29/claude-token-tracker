@@ -16,17 +16,12 @@ const OverlayManager = {
    * Initialize overlay
    */
   async init() {
-    console.log('Overlay Manager initializing...');
-    
     // Check if overlay should be shown
     const settings = await this.getSettings();
     
-    // TEMPORARILY DISABLED - uncomment when working
-    // if (settings.overlayEnabled) {
-    //   this.show();
-    // }
-    
-    console.log('Overlay is temporarily disabled for debugging');
+    if (settings.overlayEnabled) {
+      this.show();
+    }
     
     // Listen for overlay toggle messages
     chrome.runtime.onMessage.addListener((message) => {
@@ -42,8 +37,6 @@ const OverlayManager = {
         this.updateData(message.data);
       }
     });
-    
-    console.log('Overlay Manager ready');
   },
   
   /**
@@ -259,10 +252,16 @@ const OverlayManager = {
   renderData(data) {
     const { chat, lastRound } = data;
     
-    if (!chat) {
+    if (!chat || !chat.stats) {
       this.renderEmpty();
       return;
     }
+    
+    // Mark which chat we're displaying
+    this.overlay.dataset.chatId = chat.id;
+    
+    const stats = chat.stats;
+    const byType = stats.byType || {};
     
     const body = this.overlay.querySelector('.ctt-overlay-body');
     
@@ -275,31 +274,31 @@ const OverlayManager = {
       </div>
       
       <div class="ctt-section">
-        <div class="ctt-section-title">📊 Chat Summary (${chat.stats.totalRounds} rounds)</div>
+        <div class="ctt-section-title">📊 Chat Summary (${stats.totalRounds || 0} rounds)</div>
         <div class="ctt-stats-grid">
           <div class="ctt-stat-row">
             <div class="ctt-stat-label">👤 User</div>
-            <div class="ctt-stat-value">${Utils.formatLargeNumber(chat.stats.userChars)} (~${Utils.formatLargeNumber(chat.stats.userTokens)})</div>
+            <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.user?.chars)} (~${Utils.formatLargeNumber(byType.user?.tokens)})</div>
           </div>
           <div class="ctt-stat-row">
             <div class="ctt-stat-label">📄 Docs</div>
-            <div class="ctt-stat-value">${Utils.formatLargeNumber(chat.stats.docChars)} (~${Utils.formatLargeNumber(chat.stats.docTokens)})</div>
+            <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.documents?.chars)} (~${Utils.formatLargeNumber(byType.documents?.tokens)})</div>
           </div>
           <div class="ctt-stat-row">
             <div class="ctt-stat-label">🧠 Thinking</div>
-            <div class="ctt-stat-value">${Utils.formatLargeNumber(chat.stats.thinkingChars)} (~${Utils.formatLargeNumber(chat.stats.thinkingTokens)})</div>
+            <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.thinking?.chars)} (~${Utils.formatLargeNumber(byType.thinking?.tokens)})</div>
           </div>
           <div class="ctt-stat-row">
             <div class="ctt-stat-label">🤖 Reply</div>
-            <div class="ctt-stat-value">${Utils.formatLargeNumber(chat.stats.assistantChars)} (~${Utils.formatLargeNumber(chat.stats.assistantTokens)})</div>
+            <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.assistant?.chars)} (~${Utils.formatLargeNumber(byType.assistant?.tokens)})</div>
           </div>
           <div class="ctt-stat-row">
             <div class="ctt-stat-label">🔧 Tools</div>
-            <div class="ctt-stat-value">${Utils.formatLargeNumber(chat.stats.toolChars)} (~${Utils.formatLargeNumber(chat.stats.toolTokens)})</div>
+            <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.toolContent?.chars)} (~${Utils.formatLargeNumber(byType.toolContent?.tokens)})</div>
           </div>
           <div class="ctt-stat-row ctt-stat-total">
             <div class="ctt-stat-label">✨ TOTAL</div>
-            <div class="ctt-stat-value">${Utils.formatLargeNumber(chat.stats.totalChars)} (~${Utils.formatLargeNumber(chat.stats.totalTokens)})</div>
+            <div class="ctt-stat-value">${Utils.formatLargeNumber(stats.totalChars)} (~${Utils.formatLargeNumber(stats.totalTokens)})</div>
           </div>
         </div>
       </div>
@@ -395,10 +394,17 @@ const OverlayManager = {
    * Update chat title
    */
   async updateChatTitle() {
-    // Don't update if overlay doesn't exist or is hidden
-    if (!this.overlay || this.overlay.style.display === 'none' || !this.currentChatId) {
+    // Don't update if overlay doesn't exist, is hidden, loading, or no chatId
+    if (!this.overlay || this.overlay.style.display === 'none' || this.isLoading || !this.currentChatId) {
       return;
     }
+    
+    // Don't reload if we're already showing this chat's data
+    const currentChatIdInOverlay = this.overlay.dataset.chatId;
+    if (currentChatIdInOverlay === this.currentChatId) {
+      return;
+    }
+    
     await this.loadChatData(this.currentChatId);
   },
   
