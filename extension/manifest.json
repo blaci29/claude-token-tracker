@@ -60,7 +60,8 @@
     {
       "resources": [
         "src/stats/stats.html",
-        "src/assets/styles/common.css"
+        "src/assets/styles/common.css",
+        "src/content/page-injected.js"
       ],
       "matches": ["https://claude.ai/*"]
     }

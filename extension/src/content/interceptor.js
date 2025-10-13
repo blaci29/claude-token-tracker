@@ -13,8 +13,35 @@ const Interceptor = {
    */
   init() {
     console.log('Interceptor initializing...');
+    
+    // Inject into page context (not content script isolated world)
+    this.injectPageScript();
+    
+    // Also intercept in content script context
     this.interceptFetch();
+    
     console.log('Interceptor ready');
+  },
+  
+  /**
+   * Inject script into page context
+   */
+  injectPageScript() {
+    const script = document.createElement('script');
+    script.src = chrome.runtime.getURL('src/content/page-injected.js');
+    script.onload = function() {
+      this.remove();
+    };
+    
+    (document.head || document.documentElement).appendChild(script);
+    
+    // Listen for messages from page
+    window.addEventListener('message', (event) => {
+      if (event.source !== window) return;
+      if (event.data.type === 'CLAUDE_TRACKER_FETCH') {
+        console.log('📨 Fetch detected from page:', event.data.url);
+      }
+    });
   },
   
   /**
