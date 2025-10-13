@@ -1,0 +1,231 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 320px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  color: #333;
+  background: #f5f5f5;
+}
+
+.container {
+  background: white;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 16px;
+  text-align: center;
+}
+
+header h1 {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+main {
+  padding: 16px;
+  flex: 1;
+}
+
+section {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #eee;
+}
+
+section:last-of-type {
+  border-bottom: none;
+}
+
+h2 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #555;
+}
+
+/* Status Section */
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-label {
+  font-weight: 500;
+  color: #666;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ccc;
+}
+
+.dot.active {
+  background: #22c55e;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+}
+
+.dot.inactive {
+  background: #ef4444;
+}
+
+#status-text {
+  font-weight: 500;
+}
+
+.toggle-btn {
+  padding: 6px 12px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.toggle-btn:hover {
+  background: #5568d3;
+}
+
+.toggle-btn.off {
+  background: #ef4444;
+}
+
+.toggle-btn.off:hover {
+  background: #dc2626;
+}
+
+/* Stats Section */
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.stat-label {
+  color: #666;
+}
+
+.stat-value {
+  font-weight: 600;
+  color: #333;
+}
+
+/* API Section */
+.api-status {
+  padding: 8px 12px;
+  background: #f9fafb;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #666;
+}
+
+.api-status.configured {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.config-btn {
+  width: 100%;
+  padding: 8px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-bottom: 8px;
+}
+
+.config-btn:hover {
+  background: #5568d3;
+}
+
+.help-text {
+  font-size: 11px;
+  color: #999;
+  text-align: center;
+}
+
+/* Actions Section */
+.actions-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.action-btn {
+  width: 100%;
+  padding: 10px;
+  background: #f3f4f6;
+  color: #333;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-btn:hover {
+  background: #e5e7eb;
+}
+
+.action-btn.danger {
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
+.action-btn.danger:hover {
+  background: #fee2e2;
+}
+
+/* Footer */
+footer {
+  padding: 12px 16px;
+  background: #f9fafb;
+  border-top: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.version {
+  font-size: 11px;
+  color: #999;
+}
+
+.github-link {
+  font-size: 11px;
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.github-link:hover {
+  text-decoration: underline;
+}
