@@ -3,11 +3,75 @@
 This document explains how the tracker works internally and how to maintain/extend it if Claude.ai's architecture changes.
 
 ## Table of Contents
+- [Configuration & Settings](#configuration--settings)
 - [How Claude.ai Works](#how-claudeai-works)
 - [How the Tracker Works](#how-the-tracker-works)
 - [Debugging Guide](#debugging-guide)
+- [Model Statistics Tracking](#model-statistics-tracking)
 - [Extending the Tracker](#extending-the-tracker)
 - [Troubleshooting Changes](#troubleshooting-changes)
+
+---
+
+## Configuration & Settings
+
+The tracker now includes a comprehensive settings system at the top of the script. All user-configurable options are centralized in the `SETTINGS` object.
+
+### Available Settings
+
+#### Debug Mode
+```javascript
+DEBUG_MODE_ON_START: false  // Enable debug mode on startup?
+```
+
+#### Console Spam Filtering
+```javascript
+HIDE_CLAUDE_CONSOLE_SPAM: true  // Filter out Claude.ai's console spam?
+
+CONSOLE_SPAM_PATTERNS: [
+  'IsolatedSegment',
+  'NOTIFICATION API DEBUG',
+  'Violation',
+  'Preferences fetched',
+  'Intercom',
+  // ... and more
+]
+```
+This feature aggressively filters console output from Claude.ai's own logging, keeping your console clean and focused on tracker output.
+
+#### Token Estimation
+
+**Central Setting:**
+```javascript
+CHARS_PER_TOKEN: 2.6  // Default chars per token for all content types
+```
+
+**Fine-tuned Settings:**
+```javascript
+TOKEN_ESTIMATION: {
+  userMessage: null,      // User's text input (null = use central 2.6)
+  userDocuments: null,    // Attached files/documents
+  thinking: null,         // Claude's thinking process
+  assistant: null,        // Claude's visible response
+  toolContent: null,      // Artifacts, code files
+}
+```
+
+**Fine-tuning Guide:**
+- **Code (dense):** 2.0-2.4 chars/token (many symbols, brackets, operators)
+  - Recommended: `thinking: 2.4`, `toolContent: 2.2`
+- **Natural text:** 2.6 chars/token (regular conversation)
+  - Recommended: `userMessage: 2.6`, `assistant: 2.6`
+- **Documents (sparse):** 2.8-3.0 chars/token (PDFs, formatted text)
+  - Recommended: `userDocuments: 2.8`
+
+#### Other Settings
+```javascript
+LARGE_DOCUMENT_THRESHOLD: 100000      // Warning threshold in characters
+CLEAR_TEXTS_AFTER_SAVE: true          // Clear text content after saving round?
+SAVE_DELAY_MS: 500                    // Delay before saving round
+IMPORTANT_ENDPOINTS: ['/completion']  // Endpoints for detailed debug logging
+```
 
 ---
 
@@ -193,7 +257,22 @@ Keep-alive ping (ignore)
 
 ### Key Code Sections
 
-#### 1. Fetch Interception
+#### 1. Console Spam Filtering
+```javascript
+// Aggressive console filtering to hide Claude.ai's own logs
+if (SETTINGS.HIDE_CLAUDE_CONSOLE_SPAM) {
+  const _originalConsoleLog = console.log;
+  // ... override all console methods with filtering
+  function shouldFilter(args) {
+    // Check against spam patterns
+    return SETTINGS.CONSOLE_SPAM_PATTERNS.some(pattern => 
+      message.toLowerCase().includes(pattern.toLowerCase())
+    );
+  }
+}
+```
+
+#### 2. Fetch Interception
 ```javascript
 const _originalFetch = window.fetch;
 window.fetch = async function(url, options = {}) {
@@ -201,13 +280,35 @@ window.fetch = async function(url, options = {}) {
     // Extract user message and documents
     const body = JSON.parse(options.body);
     const promptText = body.prompt || '';
+    
+    // DOM-based model detection
+    let modelName = detectModelFromDOM();
+    
     // ... capture documents from attachments/files
   }
   return _originalFetch(url, options);
 };
 ```
 
-#### 2. SSE Stream Processing
+#### 3. DOM-Based Model Detection
+```javascript
+function detectModelFromDOM() {
+  // PRIORITY 1: Model selector dropdown (most reliable)
+  const modelButton = document.querySelector(
+    '[data-testid="model-selector-dropdown"] .whitespace-nowrap'
+  );
+  
+  // FALLBACK: Try other selectors
+  const fallbackSelectors = [
+    '[class*="model-name"]',
+    '.font-claude-response .whitespace-nowrap'
+  ];
+  // ... check for text containing 'Sonnet', 'Opus', 'Haiku'
+}
+```
+**Note:** The API does NOT provide model information, so we rely entirely on DOM scraping.
+
+#### 4. SSE Stream Processing
 ```javascript
 async function processSSEStream(stream) {
   const reader = stream.getReader();
@@ -219,7 +320,7 @@ async function processSSEStream(stream) {
 }
 ```
 
-#### 3. Content Capture
+#### 5. Content Capture
 ```javascript
 // Thinking
 if (data.delta?.type === 'thinking_delta') {
@@ -237,31 +338,207 @@ if (data.delta?.type === 'input_json_delta') {
 }
 ```
 
-#### 4. Token Estimation
+#### 6. Token Estimation (Configurable)
 ```javascript
-function estimateTokens(chars) {
-  return Math.ceil(chars / 2.6);
+function getTokenEstimationRate(type) {
+  // Check for specific override for this content type
+  if (SETTINGS.TOKEN_ESTIMATION[type] !== null) {
+    return SETTINGS.TOKEN_ESTIMATION[type];
+  }
+  // Fall back to central setting
+  return SETTINGS.CHARS_PER_TOKEN;
+}
+
+function estimateTokens(chars, type = 'userMessage') {
+  const rate = getTokenEstimationRate(type);
+  return Math.ceil(chars / rate);
 }
 ```
-**Ratio: 2.6 characters per token** (~3-5% accuracy)
+**Default ratio: 2.6 characters per token** (~3-5% accuracy)
+**Customizable per content type** for improved accuracy
+
+#### 7. Model Statistics Tracking
+```javascript
+function initModelStats(modelName) {
+  // Initialize per-model statistics tracking
+  if (!window.claudeTracker.global.modelStats[modelName]) {
+    window.claudeTracker.global.modelStats[modelName] = {
+      rounds: 0,
+      roundsWithThinking: 0,
+      roundsWithoutThinking: 0,
+      // ... token stats per content type
+    };
+  }
+}
+```
+**New feature:** Track statistics separately for each Claude model (Sonnet, Opus, Haiku)
 
 ---
 
 ## Debugging Guide
 
-### Enable Debug Mode
+### Enable Enhanced Debug Mode
 
 ```javascript
 window.enableDebug()
 ```
 
-This will log **every SSE event** with full details:
+This will activate **enhanced debug mode** with:
+- **Every SSE event** logged with full details
+- **Fetch URL logging** for all requests
+- **Important endpoint inspection** (automatic response body analysis)
+- **Deep object search** for token/usage/model fields
+- **Debug log accumulation** for later export
+
+Console output example:
 ```
+🐛 ═══════════════════════════════════════════════════
+🐛 📡 IMPORTANT ENDPOINT: /completion
+🐛 📤 METHOD: POST
+🐛 📦 RESPONSE BODY KEYS: ['type', 'message', 'usage']
+🐛 🔍 INTERESTING FIELDS FOUND:
+   - usage.input_tokens: 1234
+   - usage.output_tokens: 5678
+   - model: "claude-sonnet-4-5"
+🐛 ═══════════════════════════════════════════════════
+
 🐛 SSE Event: content_block_delta
    Full data: {...}
    📦 Delta type: text_delta
    📦 Text length: 42
 ```
+
+### New Debug Commands
+
+```javascript
+window.saveDebugLog()       // Download debug log as .txt file
+window.getDebugSummary()    // Display summary in console
+window.disableDebug()       // Turn off debug mode
+```
+
+#### Debug Log Export
+Saves complete debug session to timestamped file:
+```
+claude-tracker-debug-2025-10-13T14-30-00.txt
+```
+
+Contains:
+- All fetch requests
+- Response bodies from important endpoints
+- SSE events with full data
+- Automatically discovered fields (token, usage, model, etc.)
+
+#### Debug Summary
+Shows statistics about current debug session:
+- Entry counts by type (FETCH_REQUEST, SSE_EVENT, etc.)
+- All interesting fields discovered across all requests
+- Field occurrence counts
+
+### Important Endpoints
+
+The tracker now filters debug output by endpoint importance:
+```javascript
+IMPORTANT_ENDPOINTS: ['/completion', '/chat', '/model', '/chat_preferences']
+```
+
+Only these endpoints get **deep inspection** (automatic field discovery, response body analysis). Other endpoints are just logged with URL.
+
+### Deep Object Search
+
+Automatic discovery of relevant fields in API responses:
+```javascript
+function deepSearchObject(obj, searchKeys = [
+  'token', 'usage', 'model', 'size', 'count', 'chars'
+])
+```
+
+Recursively searches through response objects to find any fields matching these keywords. Useful for discovering new API fields without manually inspecting JSON.
+
+---
+
+## Model Statistics Tracking
+
+The tracker now maintains **separate statistics for each Claude model** used in the conversation.
+
+### Model Detection
+
+Model names are detected from the DOM (API doesn't provide this):
+```javascript
+// Primary: Model selector dropdown
+[data-testid="model-selector-dropdown"] .whitespace-nowrap
+
+// Fallbacks:
+[class*="model-name"]
+.font-claude-response .whitespace-nowrap
+```
+
+Typical model names detected:
+- "Claude 3.5 Sonnet"
+- "Claude Sonnet 4"
+- "Claude Opus"
+- "Claude Haiku"
+
+### Statistics Tracked Per Model
+
+For each model, the tracker records:
+- Total rounds with this model
+- Rounds with thinking enabled
+- Rounds without thinking
+- Total characters and tokens (all content types)
+- Breakdown by content type (user, documents, thinking, assistant, tools)
+
+### View Model Statistics
+
+```javascript
+window.showModelStats()
+```
+
+Outputs detailed statistics for each model:
+```
+🤖 MODEL STATISTICS
+═══════════════════════════════════════════════════════
+
+📊 Claude 3.5 Sonnet
+─────────────────────────────────────────────────────
+   Total rounds: 15
+   Rounds with thinking: 8
+   Rounds without thinking: 7
+   
+   📥 USER INPUT:
+      User messages: 45,234 chars (~17,398 tokens)
+      Documents: 12,000 chars (~4,615 tokens)
+      ─────────────────────────────
+      USER SUBTOTAL: 57,234 chars (~22,013 tokens)
+   
+   🤖 CLAUDE OUTPUT:
+      Thinking: 23,456 chars (~9,021 tokens)
+      Assistant: 34,567 chars (~13,295 tokens)
+      Tool Content: 8,900 chars (~3,423 tokens)
+      ─────────────────────────────
+      CLAUDE SUBTOTAL: 66,923 chars (~25,739 tokens)
+   
+   ═════════════════════════════════════
+   TOTAL: 124,157 chars (~47,752 tokens)
+```
+
+Also displays a summary table:
+```
+┌─────────────────────┬────────┬─────────────┬────────────────┬─────────────┐
+│ model               │ rounds │ withThinking│ withoutThinking│ totalTokens │
+├─────────────────────┼────────┼─────────────┼────────────────┼─────────────┤
+│ Claude 3.5 Sonnet   │ 15     │ 8           │ 7              │ 47,752      │
+│ Claude Opus         │ 3      │ 3           │ 0              │ 12,345      │
+└─────────────────────┴────────┴─────────────┴────────────────┴─────────────┘
+```
+
+### Use Cases
+
+- **Compare thinking usage** across models
+- **Track cost per model** (if you know pricing)
+- **Analyze conversation patterns** by model type
+- **Optimize model selection** based on actual usage
+
+---
 
 ### What to Look For
 
@@ -439,7 +716,16 @@ If major changes occur:
 ### Tracker Object
 ```javascript
 window.claudeTracker = {
-  global: { /* cumulative stats */ },
+  global: { 
+    totalChars: 0,
+    totalTokens: 0,
+    // ... other totals
+    roundCount: 0,
+    modelStats: {  // NEW: Per-model statistics
+      'Claude 3.5 Sonnet': { /* stats */ },
+      'Claude Opus': { /* stats */ }
+    }
+  },
   rounds: [ /* array of completed rounds */ ],
   last: { /* most recent round */ },
   currentRound: { /* round in progress */ }
@@ -448,12 +734,20 @@ window.claudeTracker = {
 
 ### Functions
 ```javascript
-window.enableDebug()      // Enable detailed logging
-window.disableDebug()     // Disable detailed logging
-window.showAllRounds()    // Display all rounds in table
-window.exportJSON()       // Export data to clipboard
+// === BASIC COMMANDS ===
+window.showAllRounds()    // Display all rounds in a table
+window.exportJSON()       // Export data as JSON to clipboard
 window.getTrackerURL()    // Generate blob URL for data
 window.resetTracker()     // Clear all data
+
+// === MODEL STATISTICS (NEW) ===
+window.showModelStats()   // Display per-model statistics
+
+// === DEBUG COMMANDS ===
+window.enableDebug()      // Enable enhanced debug mode
+window.disableDebug()     // Disable debug mode
+window.saveDebugLog()     // Download complete debug log as .txt file
+window.getDebugSummary()  // Show debug statistics in console
 ```
 
 ---
@@ -469,7 +763,48 @@ When updating the tracker, test:
 - [ ] Message with thinking enabled
 - [ ] Long message (>100k characters)
 - [ ] Multiple messages in succession
+- [ ] Model switching (change model mid-conversation)
 - [ ] Debug mode on/off
+- [ ] Model statistics display
+- [ ] Debug log export
+- [ ] Console spam filtering (verify clean console)
+
+---
+
+## New Features Summary (v1.3)
+
+### 1. Console Spam Filtering
+- Aggressively filters Claude.ai's own console output
+- Configurable patterns via `CONSOLE_SPAM_PATTERNS`
+- Keeps console clean for tracker output only
+
+### 2. Configurable Token Estimation
+- Central `CHARS_PER_TOKEN` setting (default: 2.6)
+- Per-content-type overrides in `TOKEN_ESTIMATION` object
+- Fine-tune for code vs natural text vs documents
+
+### 3. Enhanced Debug Mode
+- Automatic endpoint importance filtering
+- Deep object search for API fields
+- Debug log export to file
+- Debug summary statistics
+- Response body inspection for important endpoints
+
+### 4. Model Statistics Tracking
+- Per-model statistics (Sonnet, Opus, Haiku)
+- Thinking usage comparison across models
+- Detailed breakdown by content type
+- New command: `window.showModelStats()`
+
+### 5. DOM-Based Model Detection
+- Multiple selector fallbacks for reliability
+- Works even when API doesn't provide model info
+- Detects model name from UI elements
+
+### 6. Memory Optimization
+- Optional text clearing after round save
+- Configurable save delay
+- Large document warnings
 
 ---
 
@@ -483,23 +818,40 @@ When updating the tracker, test:
 
 ## Maintenance Notes
 
-**Last Updated:** October 2025
+**Last Updated:** October 2025 (v1.3)
 
 **Known Working With:**
 - Claude Sonnet 4.5
+- Claude Sonnet 3.5
 - Claude.ai web interface
+
+**Current Version Features:**
+- Console spam filtering
+- Configurable token estimation per content type
+- Enhanced debug mode with log export
+- Model-specific statistics tracking
+- DOM-based model detection with fallbacks
+- Memory optimization options
 
 **Key Dependencies:**
 - Server-Sent Events (SSE)
 - Fetch API
 - Browser storage APIs
+- DOM selectors (for model detection)
 
 **Breaking Change Risk (High to Low):**
-1. **Delta types** (most likely to change)
-2. Event structure
-3. Request format
-4. URL endpoints
-5. SSE format (least likely)
+1. **DOM selectors for model detection** (high risk - UI changes frequently)
+2. **Delta types** (high risk - API evolution)
+3. Event structure (medium risk)
+4. Request format (medium risk)
+5. URL endpoints (low risk)
+6. SSE format (very low risk)
+
+**Configuration Changes:**
+- All settings now centralized in `SETTINGS` object
+- Easy to modify without diving into code
+- Token estimation customizable per content type
+- Console filtering patterns easily updated
 
 ---
 
@@ -507,4 +859,38 @@ When updating the tracker, test:
 
 For questions or issues, open a GitHub issue or discussion.
 
-**Remember:** When in doubt, `window.enableDebug()` and examine the logs!
+**Quick Debug Checklist:**
+1. Enable debug mode: `window.enableDebug()`
+2. Reproduce the issue
+3. Save debug log: `window.saveDebugLog()`
+4. Check debug summary: `window.getDebugSummary()`
+5. Examine exported log file for patterns
+
+**Settings to Check First:**
+- `HIDE_CLAUDE_CONSOLE_SPAM` - Is console filtering too aggressive?
+- `CHARS_PER_TOKEN` - Are token estimates way off?
+- `TOKEN_ESTIMATION` - Are specific content types estimated poorly?
+- `IMPORTANT_ENDPOINTS` - Missing an endpoint for inspection?
+- `CONSOLE_SPAM_PATTERNS` - Is tracker output being filtered?
+
+**Common Issues:**
+
+**Model shows as "unknown":**
+- Check if DOM selectors changed (inspect model selector element)
+- Update `detectModelFromDOM()` with new selectors
+
+**Token estimates inaccurate:**
+- Fine-tune `CHARS_PER_TOKEN` or per-type rates
+- Different content types have different densities
+- Use actual API token counts to calibrate
+
+**Console too noisy:**
+- Add patterns to `CONSOLE_SPAM_PATTERNS`
+- Check if tracker's own output is being filtered
+
+**Missing content in tracking:**
+- Enable debug mode and look for new delta types
+- Check SSE events for new content block types
+- Update capture logic in `processSSEStream()`
+
+**Remember:** When in doubt, `window.enableDebug()` and `window.saveDebugLog()`!
