@@ -16,7 +16,23 @@ export const StorageManager = {
           initialized: true,
           trackingEnabled: true,
           overlayEnabled: true,
-          ratios: CONSTANTS.DEFAULT_RATIOS
+          tokenEstimation: {
+            central: CONSTANTS.DEFAULT_RATIOS.central,
+            overrides: { ...CONSTANTS.DEFAULT_RATIOS.overrides }
+          },
+          consoleSpamFilter: true,
+          debugMode: false,
+          overlayPosition: { x: 20, y: 100 },
+          warningThresholds: {
+            fourHour: 0.9,
+            weekly: 0.9
+          },
+          estimatedLimits: {
+            fourHour: 50000,
+            weekly: 200000
+          },
+          weekStartDay: 'Monday',
+          weekStartTime: '00:00'
         },
         chats: {},
         timers: {
@@ -37,7 +53,23 @@ export const StorageManager = {
       initialized: false,
       trackingEnabled: true,
       overlayEnabled: true,
-      ratios: CONSTANTS.DEFAULT_RATIOS
+      tokenEstimation: {
+        central: CONSTANTS.DEFAULT_RATIOS.central,
+        overrides: { ...CONSTANTS.DEFAULT_RATIOS.overrides }
+      },
+      consoleSpamFilter: true,
+      debugMode: false,
+      overlayPosition: { x: 20, y: 100 },
+      warningThresholds: {
+        fourHour: 0.9,
+        weekly: 0.9
+      },
+      estimatedLimits: {
+        fourHour: 50000,
+        weekly: 200000
+      },
+      weekStartDay: 'Monday',
+      weekStartTime: '00:00'
     };
   },
 

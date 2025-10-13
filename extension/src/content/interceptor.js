@@ -24,8 +24,12 @@ const Interceptor = {
     const _originalFetch = window.fetch;
     
     window.fetch = async function(url, options = {}) {
+      // Log ALL fetch requests for debugging
+      const urlString = typeof url === 'string' ? url : url.toString();
+      console.log('🌐 Fetch:', urlString);
+      
       // Check if this is a completion request
-      if (typeof url === 'string' && url.includes(CONSTANTS.ENDPOINTS.COMPLETION)) {
+      if (urlString.includes(CONSTANTS.ENDPOINTS.COMPLETION)) {
         console.log('🟢 Completion request detected');
         
         // Extract data from request
@@ -47,7 +51,7 @@ const Interceptor = {
       const response = await _originalFetch(url, options);
       
       // Process completion response
-      if (typeof url === 'string' && url.includes(CONSTANTS.ENDPOINTS.COMPLETION)) {
+      if (urlString.includes(CONSTANTS.ENDPOINTS.COMPLETION)) {
         const contentType = response.headers.get('content-type') || '';
         
         if (contentType.includes('text/event-stream')) {
