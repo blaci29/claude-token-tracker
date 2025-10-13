@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Claude Token Tracker
 // @namespace    http://tampermonkey.net/
-// @version      1.1
-// @description  Real-time token usage tracking for Claude.ai conversations with enhanced debug
+// @version      1.2
+// @description  Real-time token usage tracking for Claude.ai conversations with configurable estimation
 // @author       You
 // @match        https://claude.ai/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=claude.ai
@@ -18,23 +18,63 @@
 // ═══════════════════════════════════════════════════════════════════
 
 const SETTINGS = {
-  // Debug mode - alapból BE vagy KI?
+  // === DEBUG MODE ===
+  // Enable debug mode on startup?
   DEBUG_MODE_ON_START: true,
   
-  // Token becslés: hány karakter = 1 token?
-  // Claude átlag: 2.6 (3-5% pontosság)
+  // === CENTRAL TOKEN ESTIMATION ===
+  // Default chars per token ratio for ALL content types
+  // Claude average: 2.6 chars/token (~3-5% accuracy)
   CHARS_PER_TOKEN: 2.6,
   
-  // Nagy dokumentum figyelmeztetés (karakterben)
+  // === DETAILED TOKEN ESTIMATION (OPTIONAL OVERRIDES) ===
+  // Fine-tune estimation for different content types
+  // If null, uses CHARS_PER_TOKEN (central setting)
+  // 
+  // 💡 FINE-TUNING GUIDE:
+  // Different content types have different token densities:
+  // 
+  // 1. CODE (dense): 2.0-2.4 chars/token
+  //    - Contains many symbols, brackets, operators
+  //    - Recommended: thinking: 2.4, toolContent: 2.2
+  // 
+  // 2. NATURAL TEXT (normal): 2.6 chars/token
+  //    - Regular conversation, explanations
+  //    - Recommended: userMessage: 2.6, assistant: 2.6
+  // 
+  // 3. DOCUMENTS (sparse): 2.8-3.0 chars/token
+  //    - PDFs, text files with formatting
+  //    - Recommended: userDocuments: 2.8
+  // 
+  // 📊 HOW TO MEASURE YOUR OWN RATIOS:
+  // 1. Send conversations to Claude API directly
+  // 2. Compare actual token counts from API with character counts
+  // 3. Calculate: chars / tokens = your ratio
+  // 4. Set the values below for better accuracy!
+  // 
+  // 🔮 FUTURE: Chrome extension will auto-tune these values
+  //    based on your actual API usage!
+  
+  TOKEN_ESTIMATION: {
+    userMessage: null,      // User's text input (null = use central 2.6)
+    userDocuments: null,    // Attached files/documents (null = use central 2.6)
+    thinking: null,         // Claude's thinking process (null = use central 2.6)
+    assistant: null,        // Claude's visible response (null = use central 2.6)
+    toolContent: null,      // Artifacts, code files (null = use central 2.6)
+  },
+  
+  // === OTHER SETTINGS ===
+  
+  // Large document warning threshold (in characters)
   LARGE_DOCUMENT_THRESHOLD: 100000,
   
-  // Memória optimalizálás: törölni a szövegeket mentés után?
+  // Memory optimization: clear text content after saving round?
   CLEAR_TEXTS_AFTER_SAVE: true,
   
-  // Késleltetés a round mentése előtt (ms)
+  // Delay before saving round (milliseconds)
   SAVE_DELAY_MS: 500,
   
-  // Debug: Fontos endpointok (részletes logging)
+  // Important endpoints for detailed debug logging
   IMPORTANT_ENDPOINTS: [
     '/completion',
     '/chat',
@@ -90,12 +130,23 @@ window.claudeTracker = {
   }
 };
 
+// === GET TOKEN ESTIMATION RATE FOR CONTENT TYPE ===
+function getTokenEstimationRate(type) {
+  // Check if there's a specific override for this type
+  if (SETTINGS.TOKEN_ESTIMATION[type] !== null && SETTINGS.TOKEN_ESTIMATION[type] !== undefined) {
+    return SETTINGS.TOKEN_ESTIMATION[type];
+  }
+  // Fall back to central setting
+  return SETTINGS.CHARS_PER_TOKEN;
+}
+
 // === TOKEN ESTIMATION ===
-function estimateTokens(chars) {
+function estimateTokens(chars, type = 'userMessage') {
   if (typeof chars === 'string') {
     chars = chars.length;
   }
-  return Math.ceil(chars / SETTINGS.CHARS_PER_TOKEN);
+  const rate = getTokenEstimationRate(type);
+  return Math.ceil(chars / rate);
 }
 
 // === CHECK IF ENDPOINT IS IMPORTANT ===
@@ -314,11 +365,11 @@ function saveRound() {
   if (!round.active) return;
   
   const thinkingChars = round.thinking.text.length;
-  const thinkingTokens = estimateTokens(thinkingChars);
+  const thinkingTokens = estimateTokens(thinkingChars, 'thinking');
   const assistantChars = round.assistant.text.length;
-  const assistantTokens = estimateTokens(assistantChars);
+  const assistantTokens = estimateTokens(assistantChars, 'assistant');
   const toolChars = round.toolContent.text.length;
-  const toolTokens = estimateTokens(toolChars);
+  const toolTokens = estimateTokens(toolChars, 'toolContent');
   
   const hasThinking = thinkingChars > 0;
   
@@ -668,12 +719,9 @@ window.fetch = async function(url, options = {}) {
         const body = JSON.parse(options.body);
         
         const promptText = body.prompt || '';
-        let modelName = body.model || null;
         
-        // Try to detect model from DOM if not in request
-        if (!modelName) {
-          modelName = detectModelFromDOM();
-        }
+        // Model detection: Only from DOM (API doesn't provide it)
+        let modelName = detectModelFromDOM();
         
         if (!modelName) {
           modelName = 'unknown';
@@ -684,7 +732,7 @@ window.fetch = async function(url, options = {}) {
         window.claudeTracker.currentRound.timestamp = new Date().toLocaleTimeString();
         window.claudeTracker.currentRound.model = modelName;
         window.claudeTracker.currentRound.user.chars = promptText.length;
-        window.claudeTracker.currentRound.user.tokens = estimateTokens(promptText.length);
+        window.claudeTracker.currentRound.user.tokens = estimateTokens(promptText.length, 'userMessage');
         
         console.log('');
         console.log('🟢 NEW ROUND STARTED...');
@@ -740,9 +788,9 @@ window.fetch = async function(url, options = {}) {
         
         if (docChars > 0) {
           window.claudeTracker.currentRound.documents.chars = docChars;
-          window.claudeTracker.currentRound.documents.tokens = estimateTokens(docChars);
+          window.claudeTracker.currentRound.documents.tokens = estimateTokens(docChars, 'userDocuments');
           window.claudeTracker.currentRound.documents.count = docCount;
-          console.log(`📄 DOCUMENTS: ${docChars.toLocaleString()} chars (~${estimateTokens(docChars).toLocaleString()} tokens), ${docCount} file(s)`);
+          console.log(`📄 DOCUMENTS: ${docChars.toLocaleString()} chars (~${estimateTokens(docChars, 'userDocuments').toLocaleString()} tokens), ${docCount} file(s)`);
           
           if (docChars > SETTINGS.LARGE_DOCUMENT_THRESHOLD) {
             console.warn(`⚠️ Large document detected (${(docChars/1000).toFixed(0)}k chars) - will be cleared after processing`);
@@ -947,19 +995,23 @@ console.log('📌 Features:');
 console.log('   - Automatic token tracking for every conversation round');
 console.log('   - Model tracking & thinking detection');
 console.log('   - DOM-based model detection');
+console.log('   - Configurable token estimation per content type');
 console.log('   - Enhanced debug mode with endpoint filtering');
 console.log('   - Debug log export to file');
 console.log('   - Document support (txt, pdf, etc.)');
-console.log('   - Thinking + Assistant text counting');
-console.log('   - Tool content tracking (files, artifacts)');
 console.log('   - Memory optimized (texts cleared after processing)');
 console.log('');
 console.log('⚙️ CURRENT SETTINGS:');
 console.log(`   Debug mode: ${SETTINGS.DEBUG_MODE_ON_START ? 'ON' : 'OFF'}`);
-console.log(`   Chars per token: ${SETTINGS.CHARS_PER_TOKEN}`);
-console.log(`   Large doc threshold: ${SETTINGS.LARGE_DOCUMENT_THRESHOLD.toLocaleString()} chars`);
+console.log(`   Central chars/token: ${SETTINGS.CHARS_PER_TOKEN}`);
+console.log(`   Custom estimation:`);
+console.log(`      User message: ${SETTINGS.TOKEN_ESTIMATION.userMessage || 'central'}`);
+console.log(`      User documents: ${SETTINGS.TOKEN_ESTIMATION.userDocuments || 'central'}`);
+console.log(`      Thinking: ${SETTINGS.TOKEN_ESTIMATION.thinking || 'central'}`);
+console.log(`      Assistant: ${SETTINGS.TOKEN_ESTIMATION.assistant || 'central'}`);
+console.log(`      Tool content: ${SETTINGS.TOKEN_ESTIMATION.toolContent || 'central'}`);
 console.log('');
-console.log('📌 Token estimation: chars / 2.6 (~3-5% accuracy)');
+console.log('📌 Token estimation: chars / rate (default 2.6, ~3-5% accuracy)');
 console.log('');
 console.log('🎮 Available commands:');
 console.log('   window.showAllRounds()   - Display all rounds in a table');
