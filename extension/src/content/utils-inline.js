@@ -1,0 +1,96 @@
+/**
+ * INLINE VERSION FOR CONTENT SCRIPTS
+ */
+
+const Utils = {
+  hashString(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash).toString(36);
+  },
+  
+  extractChatInfo(url) {
+    const projectMatch = url.match(CONSTANTS.URL_PATTERNS.PROJECT);
+    if (projectMatch) {
+      return {
+        id: projectMatch[2],
+        type: CONSTANTS.CHAT_TYPES.PROJECT,
+        url: url,
+        projectId: projectMatch[1]
+      };
+    }
+    
+    const chatMatch = url.match(CONSTANTS.URL_PATTERNS.CHAT);
+    if (chatMatch) {
+      return {
+        id: chatMatch[1],
+        type: CONSTANTS.CHAT_TYPES.CHAT,
+        url: url,
+        projectId: null
+      };
+    }
+    
+    return {
+      id: this.hashString(url),
+      type: CONSTANTS.CHAT_TYPES.UNKNOWN,
+      url: url,
+      projectId: null
+    };
+  },
+  
+  formatNumber(num) {
+    return num.toLocaleString('en-US');
+  },
+  
+  debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  },
+  
+  waitForElement(selector, timeout = 5000) {
+    return new Promise((resolve, reject) => {
+      const element = document.querySelector(selector);
+      if (element) {
+        resolve(element);
+        return;
+      }
+      
+      const observer = new MutationObserver(() => {
+        const element = document.querySelector(selector);
+        if (element) {
+          observer.disconnect();
+          resolve(element);
+        }
+      });
+      
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+      
+      setTimeout(() => {
+        observer.disconnect();
+        reject(new Error(`Element ${selector} not found within ${timeout}ms`));
+      }, timeout);
+    });
+  },
+  
+  safeJSONParse(str, fallback = null) {
+    try {
+      return JSON.parse(str);
+    } catch (e) {
+      return fallback;
+    }
+  }
+};

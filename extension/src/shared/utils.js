@@ -1,13 +1,14 @@
 /**
  * CLAUDE TOKEN TRACKER - UTILITIES
  * Helper functions used across the extension
- * NO imports/exports - pure global object
  */
 
-const Utils = {
+import { CONSTANTS } from './constants.js';
+
+export const Utils = {
   
   /**
-   * Generate a unique hash from a string
+   * Generate a unique hash from a string (simple implementation)
    */
   hashString(str) {
     let hash = 0;

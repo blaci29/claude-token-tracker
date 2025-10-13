@@ -1,10 +1,11 @@
 /**
  * CLAUDE TOKEN TRACKER - TOKEN ESTIMATOR
  * Token estimation with central + type-specific ratios
- * NO imports/exports - pure global object
  */
 
-const TokenEstimator = {
+import { CONSTANTS } from './constants.js';
+
+export const TokenEstimator = {
   
   /**
    * Get token estimation rate for a specific content type
