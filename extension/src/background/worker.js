@@ -4,9 +4,8 @@
  */
 
 // ES6 Imports
-import { CONSTANTS } from '../shared/constants.js';
-import { Utils } from '../shared/utils.js';
-import { TokenEstimator } from '../shared/estimator.js';
+import { CONSTANTS } from '../shared/constants.module.js';
+import { TokenEstimator } from '../shared/estimator.module.js';
 import { StorageManager } from './storage.js';
 import { TimerManager } from './timer.js';
 import { Aggregator } from './aggregator.js';

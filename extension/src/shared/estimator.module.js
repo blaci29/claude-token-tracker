@@ -1,20 +1,18 @@
 /**
- * CLAUDE TOKEN TRACKER - TOKEN ESTIMATOR
- * Token estimation with central + type-specific ratios
+ * ES6 Module export for TokenEstimator
+ * Used by background service worker
  */
 
-// Import CONSTANTS - works in both module and non-module contexts
-const CONSTANTS_REF = typeof CONSTANTS !== 'undefined' ? CONSTANTS : null;
+import { CONSTANTS } from './constants.module.js';
 
-const TokenEstimator = {
+export const TokenEstimator = {
   
   /**
    * Get token estimation rate for a specific content type
    */
   getRate(type, settings) {
-    const CONST = CONSTANTS_REF || (typeof CONSTANTS !== 'undefined' ? CONSTANTS : {});
     if (!settings || !settings.tokenEstimation) {
-      return CONST.DEFAULTS?.tokenEstimation?.central || 2.6;
+      return CONSTANTS.DEFAULTS.tokenEstimation.central;
     }
     
     const override = settings.tokenEstimation.overrides[type];
@@ -30,10 +28,9 @@ const TokenEstimator = {
    * Estimate tokens from character count
    */
   estimate(chars, type = 'userMessage', settings = null) {
-    const CONST = CONSTANTS_REF || (typeof CONSTANTS !== 'undefined' ? CONSTANTS : {});
     let charCount = typeof chars === 'string' ? chars.length : chars;
     
-    const defaultSettings = { tokenEstimation: CONST.DEFAULTS?.tokenEstimation || { central: 2.6, overrides: {} } };
+    const defaultSettings = { tokenEstimation: CONSTANTS.DEFAULTS.tokenEstimation };
     const rate = this.getRate(type, settings || defaultSettings);
     
     return Math.ceil(charCount / rate);
@@ -85,14 +82,12 @@ const TokenEstimator = {
    * Get current settings from storage
    */
   async getSettings() {
-    const CONST = CONSTANTS_REF || (typeof CONSTANTS !== 'undefined' ? CONSTANTS : {});
     try {
-      const storageKey = CONST.STORAGE_KEYS?.SETTINGS || 'settings';
-      const result = await chrome.storage.local.get(storageKey);
-      return result[storageKey] || CONST.DEFAULTS || {};
+      const result = await chrome.storage.local.get(CONSTANTS.STORAGE_KEYS.SETTINGS);
+      return result[CONSTANTS.STORAGE_KEYS.SETTINGS] || CONSTANTS.DEFAULTS;
     } catch (error) {
       console.error('Error getting settings:', error);
-      return CONST.DEFAULTS || {};
+      return CONSTANTS.DEFAULTS;
     }
   }
 };

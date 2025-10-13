@@ -1,9 +1,9 @@
 /**
- * CLAUDE TOKEN TRACKER - CONSTANTS
- * Central configuration for the extension
+ * ES6 Module export for constants
+ * Used by background service worker
  */
 
-const CONSTANTS = {
+export const CONSTANTS = {
   // === EXTENSION INFO ===
   VERSION: '1.0.0',
   NAME: 'Claude Token Tracker',

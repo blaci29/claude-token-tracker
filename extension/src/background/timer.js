@@ -2,7 +2,7 @@
  * Timer Manager - Token usage timers
  */
 
-import { CONSTANTS } from '../shared/constants.js';
+import { CONSTANTS } from '../shared/constants.module.js';
 import { StorageManager } from './storage.js';
 
 export const TimerManager = {

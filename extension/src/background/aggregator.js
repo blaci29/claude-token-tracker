@@ -2,7 +2,7 @@
  * Aggregator - Statistics and data aggregation
  */
 
-import { CONSTANTS } from '../shared/constants.js';
+import { CONSTANTS } from '../shared/constants.module.js';
 
 export const Aggregator = {
   /**

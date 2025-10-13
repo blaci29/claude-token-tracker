@@ -246,6 +246,3 @@ const Utils = {
     });
   }
 };
-
-// For background worker ES6 modules - re-export
-export { Utils };
