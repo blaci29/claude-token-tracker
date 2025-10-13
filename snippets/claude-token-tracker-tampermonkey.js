@@ -259,25 +259,38 @@ function addDebugLog(type, data) {
 
 // === DOM-BASED MODEL DETECTION ===
 function detectModelFromDOM() {
-  const selectors = [
-    '.font-claude-response .whitespace-nowrap',
+  // PRIORITY 1: Model selector dropdown (most reliable)
+  try {
+    const modelButton = document.querySelector('[data-testid="model-selector-dropdown"] .whitespace-nowrap');
+    if (modelButton) {
+      const text = modelButton.textContent?.trim();
+      if (text) {
+        console.log(`🎯 Model detected from selector: "${text}"`);
+        return text;
+      }
+    }
+  } catch(e) {
+    // Ignore
+  }
+  
+  // FALLBACK: Try other selectors
+  const fallbackSelectors = [
     '[class*="model-name"]',
-    '[class*="model"] .whitespace-nowrap',
-    '.font-claude-response div',
+    '.font-claude-response .whitespace-nowrap'
   ];
   
-  for (const selector of selectors) {
+  for (const selector of fallbackSelectors) {
     try {
       const elements = document.querySelectorAll(selector);
       for (const elem of elements) {
         const text = elem.textContent?.trim();
+        // Check if it looks like a model name
         if (text && (
           text.includes('Sonnet') || 
           text.includes('Opus') || 
-          text.includes('Haiku') ||
-          text.match(/claude/i)
+          text.includes('Haiku')
         )) {
-          console.log(`🎯 Model detected from DOM: "${text}"`);
+          console.log(`🎯 Model detected from fallback: "${text}"`);
           return text;
         }
       }
