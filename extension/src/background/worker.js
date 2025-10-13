@@ -95,6 +95,10 @@ async function handleMessage(message, sender) {
     case 'IMPORT_DATA':
       return await handleImportData(data);
     
+    case 'OPEN_OPTIONS_PAGE':
+      chrome.runtime.openOptionsPage();
+      return { success: true };
+    
     default:
       throw new Error(`Unknown message type: ${type}`);
   }

@@ -393,7 +393,8 @@ const OverlayManager = {
    * Open settings
    */
   openSettings() {
-    chrome.runtime.openOptionsPage();
+    // Content scripts cannot directly open options page, send message to background
+    chrome.runtime.sendMessage({ type: 'OPEN_OPTIONS_PAGE' });
   },
   
   /**
