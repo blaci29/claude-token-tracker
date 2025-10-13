@@ -3,26 +3,13 @@
  * Central message handler and coordination
  */
 
-console.log('Step 1: Worker starting...');
-
-importScripts('/src/shared/constants.js');
-
-console.log('Step 2: Import done, CONSTANTS:', typeof CONSTANTS);
-
-chrome.runtime.onInstalled.addListener(() => {
-  console.log('Step 3: Extension installed');
-});
-
-console.log('Step 4: Worker ready');
-// Import modules (Note: In MV3, we need to use importScripts)
-importScripts(
-  '/src/shared/constants.js',
-  '/src/shared/utils.js',
-  '/src/shared/estimator.js',
-  '/src/background/storage.js',
-  '/src/background/timer.js',
-  '/src/background/aggregator.js'
-);
+// ES6 Imports
+import { CONSTANTS } from '../shared/constants.js';
+import { Utils } from '../shared/utils.js';
+import { TokenEstimator } from '../shared/estimator.js';
+import { StorageManager } from './storage.js';
+import { TimerManager } from './timer.js';
+import { Aggregator } from './aggregator.js';
 
 console.log('Claude Token Tracker Service Worker starting...');
 
@@ -37,7 +24,6 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   
   if (details.reason === 'update') {
     console.log('Extension updated from', details.previousVersion, 'to', CONSTANTS.VERSION);
-    // Handle migrations if needed
   }
 });
 
@@ -45,7 +31,6 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('Message received:', message.type);
   
-  // Handle message asynchronously
   handleMessage(message, sender)
     .then(response => {
       sendResponse({ success: true, data: response });
@@ -55,7 +40,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: false, error: error.message });
     });
   
-  // Return true to indicate async response
   return true;
 });
 
@@ -122,20 +106,16 @@ async function handleMessage(message, sender) {
 async function handleRoundCompleted(data) {
   const { chatId, chatUrl, chatTitle, chatType, round } = data;
   
-  // Get settings for token estimation
   const settings = await StorageManager.getSettings();
   
-  // Check if tracking is enabled
   if (!settings.trackingEnabled) {
     console.log('Tracking disabled - round not saved');
     return { saved: false, reason: 'tracking_disabled' };
   }
   
-  // Get or create chat
   let chat = await StorageManager.getChat(chatId);
   
   if (!chat) {
-    // Create new chat
     chat = {
       id: chatId,
       url: chatUrl,
@@ -148,7 +128,6 @@ async function handleRoundCompleted(data) {
     };
   }
   
-  // Calculate token estimates
   const estimatedRound = {
     roundNumber: chat.rounds.length + 1,
     timestamp: round.timestamp || new Date().toISOString(),
@@ -178,7 +157,6 @@ async function handleRoundCompleted(data) {
     }
   };
   
-  // Calculate total
   const totalChars = 
     estimatedRound.user.chars +
     estimatedRound.documents.chars +
@@ -198,27 +176,21 @@ async function handleRoundCompleted(data) {
     tokens: totalTokens
   };
   
-  // Add round to chat
   chat.rounds.push(estimatedRound);
   chat.lastActive = new Date().toISOString();
   
-  // Update chat title if provided
   if (chatTitle && chatTitle !== 'Untitled Chat') {
     chat.title = chatTitle;
   }
   
-  // Recalculate chat stats
   chat.stats = Aggregator.calculateChatStats(chat.rounds);
   
-  // Save chat
   await StorageManager.saveChat(chatId, chat);
   
-  // Add to timers
   await TimerManager.addRoundToTimers(chatId, estimatedRound.roundNumber, totalTokens);
   
   console.log(`Round #${estimatedRound.roundNumber} saved to chat ${chatId}`);
   
-  // Notify content script to update overlay if enabled
   if (settings.overlayEnabled) {
     try {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -230,7 +202,7 @@ async function handleRoundCompleted(data) {
         }
       });
     } catch (error) {
-      // Ignore errors if content script not loaded
+      // Ignore
     }
   }
   
@@ -267,10 +239,8 @@ async function handleGetGlobalStats(data) {
   const chats = await StorageManager.getChats();
   const timers = await StorageManager.getTimers();
   
-  // Filter chats by range
   const filteredChats = Aggregator.getFilteredChats(chats, range);
   
-  // Calculate stats
   const filteredChatsObject = {};
   filteredChats.forEach(chat => {
     filteredChatsObject[chat.id] = chat;
@@ -407,12 +377,10 @@ async function handleGetAllChats() {
 async function handleImportData(data) {
   const { importData } = data;
   
-  // Validate data structure
   if (!importData || typeof importData !== 'object') {
     throw new Error('Invalid import data');
   }
   
-  // Import to storage
   await StorageManager.importData(importData);
   
   console.log('Data imported successfully');

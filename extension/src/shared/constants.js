@@ -3,7 +3,7 @@
  * Central configuration for the extension
  */
 
-const CONSTANTS = {
+export const CONSTANTS = {
   // === EXTENSION INFO ===
   VERSION: '1.0.0',
   NAME: 'Claude Token Tracker',
@@ -30,13 +30,13 @@ const CONSTANTS = {
     overlayPosition: { x: 20, y: 100 },
     
     warningThresholds: {
-      fourHour: 0.9,   // 90%
-      weekly: 0.9      // 90%
+      fourHour: 0.9,
+      weekly: 0.9
     },
     
     estimatedLimits: {
-      fourHour: 50000,    // Estimated 4h token limit
-      weekly: 200000      // Estimated weekly token limit
+      fourHour: 50000,
+      weekly: 200000
     },
     
     weekStartDay: 'Monday',
@@ -97,7 +97,7 @@ const CONSTANTS = {
     MESSAGE_CONTAINER: '[data-testid="message-container"]'
   },
   
-  // === MESSAGE TYPES (for chrome.runtime.sendMessage) ===
+  // === MESSAGE TYPES ===
   MSG_TYPES: {
     ROUND_COMPLETED: 'ROUND_COMPLETED',
     GET_CHAT_DATA: 'GET_CHAT_DATA',
@@ -137,14 +137,9 @@ const CONSTANTS = {
   },
   
   // === THRESHOLDS ===
-  LARGE_DOCUMENT_THRESHOLD: 100000,  // chars
+  LARGE_DOCUMENT_THRESHOLD: 100000,
   SAVE_DELAY_MS: 500,
   
   // === DAYS OF WEEK ===
   DAYS: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 };
-
-// Export for use in other files
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = CONSTANTS;
-}

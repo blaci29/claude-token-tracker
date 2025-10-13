@@ -3,41 +3,37 @@
  * Helper functions used across the extension
  */
 
-const Utils = {
+import { CONSTANTS } from './constants.js';
+
+export const Utils = {
   
   /**
    * Generate a unique hash from a string (simple implementation)
-   * @param {string} str - Input string
-   * @returns {string} - Hash string
    */
   hashString(str) {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
       hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32bit integer
+      hash = hash & hash;
     }
     return Math.abs(hash).toString(36);
   },
   
   /**
    * Extract chat ID from URL
-   * @param {string} url - Claude.ai URL
-   * @returns {object} - {id, type, url}
    */
   extractChatInfo(url) {
-    // Project chat: /project/{projectId}/chat/{chatId}
     const projectMatch = url.match(CONSTANTS.URL_PATTERNS.PROJECT);
     if (projectMatch) {
       return {
-        id: projectMatch[2], // chatId
+        id: projectMatch[2],
         type: CONSTANTS.CHAT_TYPES.PROJECT,
         url: url,
         projectId: projectMatch[1]
       };
     }
     
-    // Regular chat: /chat/{chatId}
     const chatMatch = url.match(CONSTANTS.URL_PATTERNS.CHAT);
     if (chatMatch) {
       return {
@@ -58,8 +54,6 @@ const Utils = {
   
   /**
    * Format number with locale
-   * @param {number} num - Number to format
-   * @returns {string} - Formatted number
    */
   formatNumber(num) {
     return num.toLocaleString('en-US');
@@ -67,8 +61,6 @@ const Utils = {
   
   /**
    * Format large numbers (k, M notation)
-   * @param {number} num - Number to format
-   * @returns {string} - Formatted number
    */
   formatLargeNumber(num) {
     if (num >= 1000000) {
@@ -82,8 +74,6 @@ const Utils = {
   
   /**
    * Format timestamp to readable string
-   * @param {string|number} timestamp - ISO string or timestamp
-   * @returns {string} - Formatted time
    */
   formatTime(timestamp) {
     const date = new Date(timestamp);
@@ -97,8 +87,6 @@ const Utils = {
   
   /**
    * Format date to readable string
-   * @param {string|number} timestamp - ISO string or timestamp
-   * @returns {string} - Formatted date
    */
   formatDate(timestamp) {
     const date = new Date(timestamp);
@@ -111,8 +99,6 @@ const Utils = {
   
   /**
    * Format date and time
-   * @param {string|number} timestamp - ISO string or timestamp
-   * @returns {string} - Formatted datetime
    */
   formatDateTime(timestamp) {
     return `${this.formatDate(timestamp)} ${this.formatTime(timestamp)}`;
@@ -120,8 +106,6 @@ const Utils = {
   
   /**
    * Calculate time remaining
-   * @param {string} endTime - ISO timestamp
-   * @returns {object} - {hours, minutes, seconds, total}
    */
   getTimeRemaining(endTime) {
     const total = Date.parse(endTime) - Date.now();
@@ -141,8 +125,6 @@ const Utils = {
   
   /**
    * Format time remaining as human readable
-   * @param {string} endTime - ISO timestamp
-   * @returns {string} - e.g. "2h 15m"
    */
   formatTimeRemaining(endTime) {
     const remaining = this.getTimeRemaining(endTime);
@@ -168,23 +150,18 @@ const Utils = {
   
   /**
    * Get start of current week
-   * @param {string} dayName - Day name (e.g., 'Monday')
-   * @param {string} timeStr - Time string (e.g., '00:00')
-   * @returns {Date} - Start of week
    */
   getWeekStart(dayName = 'Monday', timeStr = '00:00') {
     const now = new Date();
     const dayIndex = CONSTANTS.DAYS.indexOf(dayName);
-    const currentDay = now.getDay(); // 0 = Sunday
+    const currentDay = now.getDay();
     
-    // Convert to Monday = 0 system
     const currentDayMonday = currentDay === 0 ? 6 : currentDay - 1;
     const daysToSubtract = (currentDayMonday - dayIndex + 7) % 7;
     
     const weekStart = new Date(now);
     weekStart.setDate(now.getDate() - daysToSubtract);
     
-    // Set time
     const [hours, minutes] = timeStr.split(':').map(Number);
     weekStart.setHours(hours, minutes, 0, 0);
     
@@ -193,8 +170,6 @@ const Utils = {
   
   /**
    * Deep clone object
-   * @param {object} obj - Object to clone
-   * @returns {object} - Cloned object
    */
   deepClone(obj) {
     return JSON.parse(JSON.stringify(obj));
@@ -202,9 +177,6 @@ const Utils = {
   
   /**
    * Debounce function
-   * @param {Function} func - Function to debounce
-   * @param {number} wait - Wait time in ms
-   * @returns {Function} - Debounced function
    */
   debounce(func, wait) {
     let timeout;
@@ -220,9 +192,6 @@ const Utils = {
   
   /**
    * Wait for element to appear in DOM
-   * @param {string} selector - CSS selector
-   * @param {number} timeout - Timeout in ms
-   * @returns {Promise<Element>} - Found element
    */
   waitForElement(selector, timeout = 5000) {
     return new Promise((resolve, reject) => {
@@ -254,9 +223,6 @@ const Utils = {
   
   /**
    * Safe JSON parse
-   * @param {string} str - JSON string
-   * @param {*} fallback - Fallback value
-   * @returns {*} - Parsed object or fallback
    */
   safeJSONParse(str, fallback = null) {
     try {
@@ -268,7 +234,6 @@ const Utils = {
   
   /**
    * Generate UUID v4
-   * @returns {string} - UUID
    */
   generateUUID() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -278,8 +243,3 @@ const Utils = {
     });
   }
 };
-
-// Export for use in other files
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = Utils;
-}

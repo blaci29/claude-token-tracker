@@ -3,7 +3,9 @@
  * Handles all chrome.storage.local operations
  */
 
-const StorageManager = {
+import { CONSTANTS } from '../shared/constants.js';
+
+export const StorageManager = {
   
   /**
    * Initialize storage with defaults
@@ -12,7 +14,6 @@ const StorageManager = {
     try {
       const result = await chrome.storage.local.get(null);
       
-      // Check if this is first run
       if (!result[CONSTANTS.STORAGE_KEYS.VERSION]) {
         console.log('First run - initializing storage with defaults');
         
@@ -51,7 +52,6 @@ const StorageManager = {
   
   /**
    * Get all chats
-   * @returns {Promise<object>} - Chats object
    */
   async getChats() {
     try {
@@ -65,8 +65,6 @@ const StorageManager = {
   
   /**
    * Get a specific chat by ID
-   * @param {string} chatId - Chat ID
-   * @returns {Promise<object|null>} - Chat object or null
    */
   async getChat(chatId) {
     try {
@@ -80,9 +78,6 @@ const StorageManager = {
   
   /**
    * Save or update a chat
-   * @param {string} chatId - Chat ID
-   * @param {object} chatData - Chat data
-   * @returns {Promise<boolean>} - Success status
    */
   async saveChat(chatId, chatData) {
     try {
@@ -102,8 +97,6 @@ const StorageManager = {
   
   /**
    * Delete a chat
-   * @param {string} chatId - Chat ID
-   * @returns {Promise<boolean>} - Success status
    */
   async deleteChat(chatId) {
     try {
@@ -123,7 +116,6 @@ const StorageManager = {
   
   /**
    * Get timers
-   * @returns {Promise<object>} - Timers object
    */
   async getTimers() {
     try {
@@ -143,8 +135,6 @@ const StorageManager = {
   
   /**
    * Save timers
-   * @param {object} timers - Timers object
-   * @returns {Promise<boolean>} - Success status
    */
   async saveTimers(timers) {
     try {
@@ -160,7 +150,6 @@ const StorageManager = {
   
   /**
    * Get settings
-   * @returns {Promise<object>} - Settings object
    */
   async getSettings() {
     try {
@@ -174,8 +163,6 @@ const StorageManager = {
   
   /**
    * Save settings
-   * @param {object} settings - Settings object
-   * @returns {Promise<boolean>} - Success status
    */
   async saveSettings(settings) {
     try {
@@ -191,7 +178,6 @@ const StorageManager = {
   
   /**
    * Get all data (for export)
-   * @returns {Promise<object>} - All data
    */
   async getAllData() {
     try {
@@ -205,8 +191,6 @@ const StorageManager = {
   
   /**
    * Import data (overwrite all)
-   * @param {object} data - Data to import
-   * @returns {Promise<boolean>} - Success status
    */
   async importData(data) {
     try {
@@ -221,7 +205,6 @@ const StorageManager = {
   
   /**
    * Reset all data
-   * @returns {Promise<boolean>} - Success status
    */
   async resetAll() {
     try {
@@ -236,7 +219,6 @@ const StorageManager = {
   
   /**
    * Get storage usage
-   * @returns {Promise<object>} - {bytesInUse, quota}
    */
   async getUsage() {
     try {
@@ -254,8 +236,3 @@ const StorageManager = {
     }
   }
 };
-
-// Export for use in service worker
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = StorageManager;
-}

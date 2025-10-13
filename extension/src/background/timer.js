@@ -3,19 +3,20 @@
  * Manages 4-hour and weekly usage timers
  */
 
-const TimerManager = {
+import { CONSTANTS } from '../shared/constants.js';
+import { Utils } from '../shared/utils.js';
+import { StorageManager } from './storage.js';
+
+export const TimerManager = {
   
   /**
    * Start 4-hour timer
-   * @param {string} endTime - Optional end time (ISO format)
-   * @returns {Promise<object>} - Updated timer
    */
   async start4HourTimer(endTime = null) {
     try {
       const timers = await StorageManager.getTimers();
       const now = new Date().toISOString();
       
-      // If no end time provided, set it to 4 hours from now
       const calculatedEndTime = endTime || new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
       
       timers.fourHour = {
@@ -39,7 +40,6 @@ const TimerManager = {
   
   /**
    * Reset 4-hour timer
-   * @returns {Promise<object>} - Updated timer
    */
   async reset4HourTimer() {
     return await this.start4HourTimer();
@@ -47,15 +47,12 @@ const TimerManager = {
   
   /**
    * Set 4-hour timer end time
-   * @param {string} endTime - End time (ISO format)
-   * @returns {Promise<object>} - Updated timer
    */
   async set4HourTimerEnd(endTime) {
     try {
       const timers = await StorageManager.getTimers();
       
       if (!timers.fourHour.enabled) {
-        // If not running, start it with this end time
         return await this.start4HourTimer(endTime);
       }
       
@@ -73,7 +70,6 @@ const TimerManager = {
   
   /**
    * Start weekly timer
-   * @returns {Promise<object>} - Updated timer
    */
   async startWeeklyTimer() {
     try {
@@ -107,7 +103,6 @@ const TimerManager = {
   
   /**
    * Reset weekly timer
-   * @returns {Promise<object>} - Updated timer
    */
   async resetWeeklyTimer() {
     return await this.startWeeklyTimer();
@@ -115,10 +110,6 @@ const TimerManager = {
   
   /**
    * Add round to timers
-   * @param {string} chatId - Chat ID
-   * @param {number} roundNumber - Round number
-   * @param {number} tokens - Token count
-   * @returns {Promise<boolean>} - Success status
    */
   async addRoundToTimers(chatId, roundNumber, tokens) {
     try {
@@ -131,21 +122,16 @@ const TimerManager = {
         timestamp: new Date().toISOString()
       };
       
-      // Add to 4-hour timer if enabled
       if (timers.fourHour.enabled) {
         timers.fourHour.rounds.push(roundRef);
         timers.fourHour.tokens += tokens;
         
-        // Check if expired
         if (timers.fourHour.endTime && Date.now() > Date.parse(timers.fourHour.endTime)) {
           console.log('4-hour timer expired');
-          // Optionally auto-reset or notify
         }
       }
       
-      // Add to weekly timer if enabled
       if (timers.weekly.enabled) {
-        // Check if we need to reset weekly timer
         const weekStart = Utils.getWeekStart(
           timers.weekly.weekStartDay,
           timers.weekly.weekStartTime
@@ -154,7 +140,6 @@ const TimerManager = {
         if (weekStart.getTime() > Date.parse(timers.weekly.currentWeekStart)) {
           console.log('Week changed - resetting weekly timer');
           await this.resetWeeklyTimer();
-          // Re-get timers after reset
           const updatedTimers = await StorageManager.getTimers();
           updatedTimers.weekly.rounds.push(roundRef);
           updatedTimers.weekly.tokens += tokens;
@@ -168,7 +153,6 @@ const TimerManager = {
         await StorageManager.saveTimers(timers);
       }
       
-      // Check warning thresholds
       await this.checkWarnings(timers);
       
       return true;
@@ -180,13 +164,11 @@ const TimerManager = {
   
   /**
    * Check warning thresholds and send notifications
-   * @param {object} timers - Timers object
    */
   async checkWarnings(timers) {
     try {
       const settings = await StorageManager.getSettings();
       
-      // Check 4-hour timer
       if (timers.fourHour.enabled) {
         const fourHourLimit = settings.estimatedLimits?.fourHour || 50000;
         const fourHourThreshold = settings.warningThresholds?.fourHour || 0.9;
@@ -205,7 +187,6 @@ const TimerManager = {
         }
       }
       
-      // Check weekly timer
       if (timers.weekly.enabled) {
         const weeklyLimit = settings.estimatedLimits?.weekly || 200000;
         const weeklyThreshold = settings.warningThresholds?.weekly || 0.9;
@@ -230,8 +211,6 @@ const TimerManager = {
   
   /**
    * Send warning notification
-   * @param {string} title - Notification title
-   * @param {string} message - Notification message
    */
   sendWarningNotification(title, message) {
     try {
@@ -249,7 +228,6 @@ const TimerManager = {
   
   /**
    * Get timer status
-   * @returns {Promise<object>} - Timer status
    */
   async getStatus() {
     try {
@@ -278,8 +256,3 @@ const TimerManager = {
     }
   }
 };
-
-// Export for use in service worker
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = TimerManager;
-}
