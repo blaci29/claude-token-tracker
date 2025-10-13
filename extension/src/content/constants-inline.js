@@ -80,5 +80,21 @@ const CONSTANTS = {
   CHAT_TYPES: { PROJECT: 'project', CHAT: 'chat', UNKNOWN: 'unknown' },
   LARGE_DOCUMENT_THRESHOLD: 100000,
   SAVE_DELAY_MS: 500,
-  DAYS: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+  DAYS: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+  
+  TIMER_LIMITS: {
+    FOUR_HOUR: 50000,
+    WEEKLY: 200000
+  },
+  
+  DEFAULT_RATIOS: {
+    central: 2.6,
+    overrides: {
+      userMessage: null,
+      userDocuments: 2.8,
+      thinking: 2.4,
+      assistant: null,
+      toolContent: 2.2
+    }
+  }
 };
