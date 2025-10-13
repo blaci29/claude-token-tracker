@@ -3,7 +3,7 @@
  * Central configuration for the extension
  */
 
-export const CONSTANTS = {
+const CONSTANTS = {
   // === EXTENSION INFO ===
   VERSION: '1.0.0',
   NAME: 'Claude Token Tracker',
@@ -143,3 +143,6 @@ export const CONSTANTS = {
   // === DAYS OF WEEK ===
   DAYS: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 };
+
+// For background worker ES6 modules - re-export
+export { CONSTANTS };

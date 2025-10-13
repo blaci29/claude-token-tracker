@@ -3,16 +3,18 @@
  * Token estimation with central + type-specific ratios
  */
 
-import { CONSTANTS } from './constants.js';
+// Import CONSTANTS - works in both module and non-module contexts
+const CONSTANTS_REF = typeof CONSTANTS !== 'undefined' ? CONSTANTS : null;
 
-export const TokenEstimator = {
+const TokenEstimator = {
   
   /**
    * Get token estimation rate for a specific content type
    */
   getRate(type, settings) {
+    const CONST = CONSTANTS_REF || (typeof CONSTANTS !== 'undefined' ? CONSTANTS : {});
     if (!settings || !settings.tokenEstimation) {
-      return CONSTANTS.DEFAULTS.tokenEstimation.central;
+      return CONST.DEFAULTS?.tokenEstimation?.central || 2.6;
     }
     
     const override = settings.tokenEstimation.overrides[type];
@@ -28,9 +30,11 @@ export const TokenEstimator = {
    * Estimate tokens from character count
    */
   estimate(chars, type = 'userMessage', settings = null) {
+    const CONST = CONSTANTS_REF || (typeof CONSTANTS !== 'undefined' ? CONSTANTS : {});
     let charCount = typeof chars === 'string' ? chars.length : chars;
     
-    const rate = this.getRate(type, settings || { tokenEstimation: CONSTANTS.DEFAULTS.tokenEstimation });
+    const defaultSettings = { tokenEstimation: CONST.DEFAULTS?.tokenEstimation || { central: 2.6, overrides: {} } };
+    const rate = this.getRate(type, settings || defaultSettings);
     
     return Math.ceil(charCount / rate);
   },
@@ -81,12 +85,17 @@ export const TokenEstimator = {
    * Get current settings from storage
    */
   async getSettings() {
+    const CONST = CONSTANTS_REF || (typeof CONSTANTS !== 'undefined' ? CONSTANTS : {});
     try {
-      const result = await chrome.storage.local.get(CONSTANTS.STORAGE_KEYS.SETTINGS);
-      return result[CONSTANTS.STORAGE_KEYS.SETTINGS] || CONSTANTS.DEFAULTS;
+      const storageKey = CONST.STORAGE_KEYS?.SETTINGS || 'settings';
+      const result = await chrome.storage.local.get(storageKey);
+      return result[storageKey] || CONST.DEFAULTS || {};
     } catch (error) {
       console.error('Error getting settings:', error);
-      return CONSTANTS.DEFAULTS;
+      return CONST.DEFAULTS || {};
     }
   }
 };
+
+// For background worker ES6 modules - re-export
+export { TokenEstimator };

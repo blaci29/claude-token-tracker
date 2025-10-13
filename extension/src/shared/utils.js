@@ -3,9 +3,10 @@
  * Helper functions used across the extension
  */
 
-import { CONSTANTS } from './constants.js';
+// Import CONSTANTS - works in both module and non-module contexts
+const CONSTANTS_REF = typeof CONSTANTS !== 'undefined' ? CONSTANTS : null;
 
-export const Utils = {
+const Utils = {
   
   /**
    * Generate a unique hash from a string (simple implementation)
@@ -24,21 +25,22 @@ export const Utils = {
    * Extract chat ID from URL
    */
   extractChatInfo(url) {
-    const projectMatch = url.match(CONSTANTS.URL_PATTERNS.PROJECT);
+    const CONST = CONSTANTS_REF || (typeof CONSTANTS !== 'undefined' ? CONSTANTS : {});
+    const projectMatch = url.match(CONST.URL_PATTERNS?.PROJECT);
     if (projectMatch) {
       return {
         id: projectMatch[2],
-        type: CONSTANTS.CHAT_TYPES.PROJECT,
+        type: CONST.CHAT_TYPES?.PROJECT || 'project',
         url: url,
         projectId: projectMatch[1]
       };
     }
     
-    const chatMatch = url.match(CONSTANTS.URL_PATTERNS.CHAT);
+    const chatMatch = url.match(CONST.URL_PATTERNS?.CHAT);
     if (chatMatch) {
       return {
         id: chatMatch[1],
-        type: CONSTANTS.CHAT_TYPES.CHAT,
+        type: CONST.CHAT_TYPES?.CHAT || 'chat',
         url: url,
         projectId: null
       };
@@ -46,7 +48,7 @@ export const Utils = {
     
     return {
       id: this.hashString(url),
-      type: CONSTANTS.CHAT_TYPES.UNKNOWN,
+      type: CONST.CHAT_TYPES?.UNKNOWN || 'unknown',
       url: url,
       projectId: null
     };
@@ -152,8 +154,9 @@ export const Utils = {
    * Get start of current week
    */
   getWeekStart(dayName = 'Monday', timeStr = '00:00') {
+    const CONST = CONSTANTS_REF || (typeof CONSTANTS !== 'undefined' ? CONSTANTS : {});
     const now = new Date();
-    const dayIndex = CONSTANTS.DAYS.indexOf(dayName);
+    const dayIndex = (CONST.DAYS || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']).indexOf(dayName);
     const currentDay = now.getDay();
     
     const currentDayMonday = currentDay === 0 ? 6 : currentDay - 1;
@@ -243,3 +246,6 @@ export const Utils = {
     });
   }
 };
+
+// For background worker ES6 modules - re-export
+export { Utils };
