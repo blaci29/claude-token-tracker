@@ -1,8 +1,9 @@
 // ===================================================================
-// CLAUDE TOKEN TRACKER - CLEAN VERSION WITH DEBUG
+// CLAUDE TOKEN TRACKER - ENHANCED DEBUG + DOM MODEL DETECTION
 // Real-time token usage tracking for Claude.ai conversations
 // Token estimation only (~3-5% accuracy)
 // Captures: text, thinking, AND file content!
+// NEW: Enhanced debug mode + DOM-based model detection
 // ===================================================================
 
 console.clear();
@@ -28,12 +29,15 @@ window.claudeTracker = {
     totalAssistantTokens: 0,
     totalToolChars: 0,
     totalToolTokens: 0,
-    roundCount: 0
+    roundCount: 0,
+    modelStats: {}
   },
   rounds: [],
   last: null,
   
   currentRound: {
+    model: null,
+    hasThinking: false,
     user: { chars: 0, tokens: 0 },
     documents: { chars: 0, tokens: 0, count: 0 },
     thinking: { text: '', chars: 0, tokens: 0 },
@@ -52,13 +56,83 @@ function estimateTokens(chars) {
   return Math.ceil(chars / 2.6);
 }
 
+// === DOM-BASED MODEL DETECTION ===
+function detectModelFromDOM() {
+  const selectors = [
+    '.font-claude-response .whitespace-nowrap',
+    '[class*="model-name"]',
+    '[class*="model"] .whitespace-nowrap',
+    '.font-claude-response div',
+  ];
+  
+  for (const selector of selectors) {
+    try {
+      const elements = document.querySelectorAll(selector);
+      for (const elem of elements) {
+        const text = elem.textContent?.trim();
+        // Check if it looks like a model name
+        if (text && (
+          text.includes('Sonnet') || 
+          text.includes('Opus') || 
+          text.includes('Haiku') ||
+          text.match(/claude/i)
+        )) {
+          console.log(`🎯 Model detected from DOM: "${text}"`);
+          return text;
+        }
+      }
+    } catch(e) {
+      // Ignore selector errors
+    }
+  }
+  
+  return null;
+}
+
+// === DEEP SEARCH FOR INTERESTING FIELDS ===
+function deepSearchObject(obj, searchKeys = ['token', 'usage', 'model', 'size', 'count', 'chars'], path = '', results = []) {
+  if (!obj || typeof obj !== 'object') return results;
+  
+  for (const key in obj) {
+    const newPath = path ? `${path}.${key}` : key;
+    const value = obj[key];
+    
+    // Check if key matches any search term
+    const keyLower = key.toLowerCase();
+    const isInteresting = searchKeys.some(searchKey => keyLower.includes(searchKey));
+    
+    if (isInteresting && value !== null && value !== undefined) {
+      results.push({
+        path: newPath,
+        key: key,
+        value: value,
+        type: typeof value
+      });
+    }
+    
+    // Recurse into nested objects/arrays
+    if (typeof value === 'object' && value !== null) {
+      deepSearchObject(value, searchKeys, newPath, results);
+    }
+  }
+  
+  return results;
+}
+
 // === DEBUG FUNCTIONS ===
 window.enableDebug = function() {
   debugMode = true;
   console.log('');
-  console.log('🐛 DEBUG MODE ENABLED');
-  console.log('   All SSE events will be logged');
+  console.log('═══════════════════════════════════════════════════════');
+  console.log('🐛 ENHANCED DEBUG MODE ENABLED');
+  console.log('═══════════════════════════════════════════════════════');
+  console.log('   📡 All fetch URLs will be logged');
+  console.log('   📦 Response bodies will be inspected');
+  console.log('   🔍 Automatic search for: token, usage, model, size, count');
+  console.log('   📝 SSE events will be logged');
+  console.log('');
   console.log('   Use window.disableDebug() to turn off');
+  console.log('═══════════════════════════════════════════════════════');
   console.log('');
 };
 
@@ -68,6 +142,29 @@ window.disableDebug = function() {
   console.log('🔇 DEBUG MODE DISABLED');
   console.log('');
 };
+
+// === INITIALIZE MODEL STATS ===
+function initModelStats(modelName) {
+  if (!window.claudeTracker.global.modelStats[modelName]) {
+    window.claudeTracker.global.modelStats[modelName] = {
+      rounds: 0,
+      roundsWithThinking: 0,
+      roundsWithoutThinking: 0,
+      totalChars: 0,
+      totalTokens: 0,
+      totalUserChars: 0,
+      totalUserTokens: 0,
+      totalDocChars: 0,
+      totalDocTokens: 0,
+      totalThinkingChars: 0,
+      totalThinkingTokens: 0,
+      totalAssistantChars: 0,
+      totalAssistantTokens: 0,
+      totalToolChars: 0,
+      totalToolTokens: 0
+    };
+  }
+}
 
 // === SAVE ROUND ===
 function saveRound() {
@@ -82,7 +179,8 @@ function saveRound() {
   const toolChars = round.toolContent.text.length;
   const toolTokens = estimateTokens(toolChars);
   
-  // Calculate subtotals
+  const hasThinking = thinkingChars > 0;
+  
   const userSubtotalChars = round.user.chars + round.documents.chars;
   const userSubtotalTokens = round.user.tokens + round.documents.tokens;
   const claudeSubtotalChars = thinkingChars + assistantChars + toolChars;
@@ -94,6 +192,8 @@ function saveRound() {
   const savedRound = {
     roundNumber: window.claudeTracker.global.roundCount + 1,
     timestamp: round.timestamp || new Date().toLocaleTimeString(),
+    model: round.model || 'unknown',
+    hasThinking: hasThinking,
     user: {
       chars: round.user.chars,
       tokens: round.user.tokens
@@ -147,15 +247,41 @@ function saveRound() {
   window.claudeTracker.global.totalChars += totalChars;
   window.claudeTracker.global.totalTokens += totalTokens;
   
+  // Update model-specific stats
+  const modelName = round.model || 'unknown';
+  initModelStats(modelName);
+  const modelStats = window.claudeTracker.global.modelStats[modelName];
+  
+  modelStats.rounds++;
+  if (hasThinking) {
+    modelStats.roundsWithThinking++;
+  } else {
+    modelStats.roundsWithoutThinking++;
+  }
+  modelStats.totalChars += totalChars;
+  modelStats.totalTokens += totalTokens;
+  modelStats.totalUserChars += round.user.chars;
+  modelStats.totalUserTokens += round.user.tokens;
+  modelStats.totalDocChars += round.documents.chars;
+  modelStats.totalDocTokens += round.documents.tokens;
+  modelStats.totalThinkingChars += thinkingChars;
+  modelStats.totalThinkingTokens += thinkingTokens;
+  modelStats.totalAssistantChars += assistantChars;
+  modelStats.totalAssistantTokens += assistantTokens;
+  modelStats.totalToolChars += toolChars;
+  modelStats.totalToolTokens += toolTokens;
+  
   printRoundSummary(savedRound);
   
-  // Clear texts from memory (optimization for large documents)
+  // Clear texts from memory
   window.claudeTracker.currentRound.thinking.text = '';
   window.claudeTracker.currentRound.assistant.text = '';
   window.claudeTracker.currentRound.toolContent.text = '';
   
   // Reset current round
   window.claudeTracker.currentRound = {
+    model: null,
+    hasThinking: false,
     user: { chars: 0, tokens: 0 },
     documents: { chars: 0, tokens: 0, count: 0 },
     thinking: { text: '', chars: 0, tokens: 0 },
@@ -170,7 +296,6 @@ function saveRound() {
 function printRoundSummary(round) {
   const g = window.claudeTracker.global;
   
-  // Calculate global subtotals
   const globalUserSubtotal = g.totalUserChars + g.totalDocChars;
   const globalUserTokens = g.totalUserTokens + g.totalDocTokens;
   const globalClaudeSubtotal = g.totalThinkingChars + g.totalAssistantChars + g.totalToolChars;
@@ -179,6 +304,8 @@ function printRoundSummary(round) {
   console.log('');
   console.log('═══════════════════════════════════════════════════════');
   console.log(`✅ ROUND #${round.roundNumber} COMPLETED @ ${round.timestamp}`);
+  console.log(`🤖 MODEL: ${round.model}`);
+  console.log(`🧠 THINKING: ${round.hasThinking ? '✓ YES' : '✗ NO'}`);
   console.log('═══════════════════════════════════════════════════════');
   console.log('');
   console.log('📥 USER INPUT:');
@@ -243,6 +370,74 @@ window.showAllRounds = function() {
   console.table(window.claudeTracker.global);
 };
 
+window.showModelStats = function() {
+  const modelStats = window.claudeTracker.global.modelStats;
+  
+  console.log('');
+  console.log('═══════════════════════════════════════════════════════');
+  console.log('🤖 MODEL STATISTICS');
+  console.log('═══════════════════════════════════════════════════════');
+  console.log('');
+  
+  const models = Object.keys(modelStats);
+  
+  if (models.length === 0) {
+    console.log('No model data available yet.');
+    console.log('');
+    return;
+  }
+  
+  models.forEach(modelName => {
+    const stats = modelStats[modelName];
+    const userSubtotal = stats.totalUserChars + stats.totalDocChars;
+    const userTokens = stats.totalUserTokens + stats.totalDocTokens;
+    const claudeSubtotal = stats.totalThinkingChars + stats.totalAssistantChars + stats.totalToolChars;
+    const claudeTokens = stats.totalThinkingTokens + stats.totalAssistantTokens + stats.totalToolTokens;
+    
+    console.log(`📊 ${modelName}`);
+    console.log('─────────────────────────────────────────────────────');
+    console.log(`   Total rounds: ${stats.rounds}`);
+    console.log(`   Rounds with thinking: ${stats.roundsWithThinking}`);
+    console.log(`   Rounds without thinking: ${stats.roundsWithoutThinking}`);
+    console.log('');
+    console.log('   📥 USER INPUT:');
+    console.log(`      User messages: ${stats.totalUserChars.toLocaleString()} chars (~${stats.totalUserTokens.toLocaleString()} tokens)`);
+    console.log(`      Documents: ${stats.totalDocChars.toLocaleString()} chars (~${stats.totalDocTokens.toLocaleString()} tokens)`);
+    console.log('      ─────────────────────────────');
+    console.log(`      USER SUBTOTAL: ${userSubtotal.toLocaleString()} chars (~${userTokens.toLocaleString()} tokens)`);
+    console.log('');
+    console.log('   🤖 CLAUDE OUTPUT:');
+    console.log(`      Thinking: ${stats.totalThinkingChars.toLocaleString()} chars (~${stats.totalThinkingTokens.toLocaleString()} tokens)`);
+    console.log(`      Assistant: ${stats.totalAssistantChars.toLocaleString()} chars (~${stats.totalAssistantTokens.toLocaleString()} tokens)`);
+    console.log(`      Tool Content: ${stats.totalToolChars.toLocaleString()} chars (~${stats.totalToolTokens.toLocaleString()} tokens)`);
+    console.log('      ─────────────────────────────');
+    console.log(`      CLAUDE SUBTOTAL: ${claudeSubtotal.toLocaleString()} chars (~${claudeTokens.toLocaleString()} tokens)`);
+    console.log('');
+    console.log('   ═════════════════════════════════════');
+    console.log(`   TOTAL: ${stats.totalChars.toLocaleString()} chars (~${stats.totalTokens.toLocaleString()} tokens)`);
+    console.log('');
+  });
+  
+  console.log('═══════════════════════════════════════════════════════');
+  console.log('');
+  
+  const tableData = models.map(modelName => {
+    const stats = modelStats[modelName];
+    return {
+      model: modelName,
+      rounds: stats.rounds,
+      withThinking: stats.roundsWithThinking,
+      withoutThinking: stats.roundsWithoutThinking,
+      totalTokens: stats.totalTokens,
+      thinkingTokens: stats.totalThinkingTokens,
+      assistantTokens: stats.totalAssistantTokens
+    };
+  });
+  
+  console.table(tableData);
+  console.log('');
+};
+
 window.exportJSON = function() {
   const json = JSON.stringify(window.claudeTracker, null, 2);
   console.log('');
@@ -286,7 +481,8 @@ window.resetTracker = function() {
       totalAssistantTokens: 0,
       totalToolChars: 0,
       totalToolTokens: 0,
-      roundCount: 0
+      roundCount: 0,
+      modelStats: {}
     };
     window.claudeTracker.rounds = [];
     window.claudeTracker.last = null;
@@ -299,6 +495,16 @@ const _originalFetch = window.fetch;
 
 window.fetch = async function(url, options = {}) {
   
+  // === ENHANCED DEBUG: Log ALL fetch URLs ===
+  if (debugMode) {
+    console.log('');
+    console.log('🐛 ═══════════════════════════════════════════════════');
+    console.log(`🐛 📡 FETCH URL: ${url}`);
+    if (options.method) {
+      console.log(`🐛 📤 METHOD: ${options.method}`);
+    }
+  }
+  
   // === INTERCEPT COMPLETION REQUESTS ===
   if (typeof url === 'string' && url.includes('/completion')) {
     
@@ -307,22 +513,43 @@ window.fetch = async function(url, options = {}) {
         const body = JSON.parse(options.body);
         
         const promptText = body.prompt || '';
+        let modelName = body.model || null;
+        
+        // Try to detect model from DOM if not in request
+        if (!modelName) {
+          modelName = detectModelFromDOM();
+        }
+        
+        if (!modelName) {
+          modelName = 'unknown';
+        }
         
         // Start new round
         window.claudeTracker.currentRound.active = true;
         window.claudeTracker.currentRound.timestamp = new Date().toLocaleTimeString();
+        window.claudeTracker.currentRound.model = modelName;
         window.claudeTracker.currentRound.user.chars = promptText.length;
         window.claudeTracker.currentRound.user.tokens = estimateTokens(promptText.length);
         
         console.log('');
         console.log('🟢 NEW ROUND STARTED...');
+        console.log(`🤖 MODEL: ${modelName}`);
         console.log(`📤 USER message: ${promptText.length} chars (~${window.claudeTracker.currentRound.user.tokens} tokens)`);
+        
+        // === ENHANCED DEBUG: Request body inspection ===
+        if (debugMode) {
+          console.log('🐛 📦 REQUEST BODY KEYS:', Object.keys(body));
+          const interestingFields = deepSearchObject(body);
+          if (interestingFields.length > 0) {
+            console.log('🐛 🔍 INTERESTING FIELDS IN REQUEST:');
+            console.table(interestingFields);
+          }
+        }
         
         // === CHECK FOR DOCUMENTS ===
         let docChars = 0;
         let docCount = 0;
         
-        // Check attachments
         if (body.attachments && Array.isArray(body.attachments)) {
           body.attachments.forEach((att) => {
             if (att.extracted_content) {
@@ -336,7 +563,6 @@ window.fetch = async function(url, options = {}) {
           });
         }
         
-        // Check files
         if (body.files && Array.isArray(body.files)) {
           body.files.forEach((file) => {
             if (file.content) {
@@ -356,7 +582,6 @@ window.fetch = async function(url, options = {}) {
           window.claudeTracker.currentRound.documents.count = docCount;
           console.log(`📄 DOCUMENTS: ${docChars.toLocaleString()} chars (~${estimateTokens(docChars).toLocaleString()} tokens), ${docCount} file(s)`);
           
-          // Memory warning for large documents
           if (docChars > 100000) {
             console.warn(`⚠️ Large document detected (${(docChars/1000).toFixed(0)}k chars) - will be cleared after processing`);
           }
@@ -364,6 +589,9 @@ window.fetch = async function(url, options = {}) {
         
       } catch(e) {
         console.error('❌ Error parsing request body:', e);
+        if (debugMode) {
+          console.error('🐛 Full error:', e);
+        }
       }
     }
   }
@@ -371,7 +599,39 @@ window.fetch = async function(url, options = {}) {
   // === CALL ORIGINAL FETCH ===
   const response = await _originalFetch(url, options);
   
-  // === PROCESS RESPONSE ===
+  // === ENHANCED DEBUG: Response inspection ===
+  if (debugMode) {
+    console.log(`🐛 📥 RESPONSE STATUS: ${response.status} ${response.statusText}`);
+    console.log(`🐛 📥 RESPONSE TYPE: ${response.type}`);
+    
+    const contentType = response.headers.get('content-type') || '';
+    console.log(`🐛 📥 CONTENT-TYPE: ${contentType}`);
+    
+    // Try to read and inspect response body (but preserve it for actual use)
+    if (contentType.includes('application/json')) {
+      try {
+        const clonedResponse = response.clone();
+        const data = await clonedResponse.json();
+        
+        console.log('🐛 📦 RESPONSE BODY KEYS:', Object.keys(data));
+        
+        const interestingFields = deepSearchObject(data);
+        if (interestingFields.length > 0) {
+          console.log('🐛 🔍 INTERESTING FIELDS IN RESPONSE:');
+          console.table(interestingFields);
+        } else {
+          console.log('🐛 ℹ️ No interesting fields found in response');
+        }
+      } catch(e) {
+        console.log('🐛 ⚠️ Could not parse JSON response:', e.message);
+      }
+    }
+    
+    console.log('🐛 ═══════════════════════════════════════════════════');
+    console.log('');
+  }
+  
+  // === PROCESS COMPLETION RESPONSE ===
   if (typeof url === 'string' && url.includes('/completion')) {
     const contentType = response.headers.get('content-type') || '';
     
@@ -413,7 +673,6 @@ async function processSSEStream(stream) {
               console.log('🐛 SSE Event:', data.type);
               console.log('   Full data:', data);
               
-              // Detailed info for content blocks
               if (data.type === 'content_block_start') {
                 console.log('   📦 Content block type:', data.content_block?.type);
               }
@@ -430,6 +689,14 @@ async function processSSEStream(stream) {
                   console.log('   📦 Partial JSON length:', data.delta.partial_json.length);
                 }
               }
+              
+              // Search for interesting fields in SSE data
+              const interestingFields = deepSearchObject(data);
+              if (interestingFields.length > 0) {
+                console.log('   🔍 Interesting fields in event:');
+                console.table(interestingFields);
+              }
+              
               console.log('');
             }
             
@@ -495,6 +762,9 @@ console.log('✅ CLAUDE TOKEN TRACKER ACTIVE!');
 console.log('');
 console.log('📌 Features:');
 console.log('   - Automatic token tracking for every conversation round');
+console.log('   - Model tracking & thinking detection');
+console.log('   - DOM-based model detection');
+console.log('   - Enhanced debug mode (all fetch URLs + response inspection)');
 console.log('   - Document support (txt, pdf, etc.)');
 console.log('   - Thinking + Assistant text counting');
 console.log('   - Tool content tracking (files, artifacts)');
@@ -503,12 +773,13 @@ console.log('');
 console.log('📌 Token estimation: chars / 2.6 (~3-5% accuracy)');
 console.log('');
 console.log('🎮 Available commands:');
-console.log('   window.showAllRounds()  - Display all rounds in a table');
-console.log('   window.exportJSON()     - Export data as JSON to clipboard');
-console.log('   window.getTrackerURL()  - Generate blob URL for data');
-console.log('   window.resetTracker()   - Reset all tracking data');
-console.log('   window.enableDebug()    - Enable debug mode (SSE events)');
-console.log('   window.disableDebug()   - Disable debug mode');
+console.log('   window.showAllRounds()   - Display all rounds in a table');
+console.log('   window.showModelStats()  - Display model-specific statistics');
+console.log('   window.exportJSON()      - Export data as JSON to clipboard');
+console.log('   window.getTrackerURL()   - Generate blob URL for data');
+console.log('   window.resetTracker()    - Reset all tracking data');
+console.log('   window.enableDebug()     - Enable ENHANCED debug mode');
+console.log('   window.disableDebug()    - Disable debug mode');
 console.log('');
 console.log('💬 Start chatting with Claude to track token usage!');
 console.log('');
