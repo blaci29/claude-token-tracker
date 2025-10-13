@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Token Tracker</title>
+  <link rel="stylesheet" href="../assets/styles/common.css">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <div class="popup-header">
+      <h1 class="popup-title">Claude Token Tracker</h1>
+      <p class="popup-subtitle">Real-time usage monitoring</p>
+    </div>
+    
+    <!-- Tracking Control -->
+    <div class="popup-section">
+      <div class="control-row">
+        <div class="control-label">
+          <span class="control-icon">🔄</span>
+          <span>Tracking</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="tracking-toggle" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      
+      <div class="control-row">
+        <div class="control-label">
+          <span class="control-icon">🎨</span>
+          <span>Token Ratio</span>
+        </div>
+        <input type="number" id="token-ratio" class="ratio-input" value="2.6" step="0.1" min="1" max="5">
+      </div>
+    </div>
+    
+    <div class="divider"></div>
+    
+    <!-- 4-Hour Timer -->
+    <div class="popup-section">
+      <div class="timer-header">
+        <h3 class="timer-title">⏱️ 4-Hour Limit</h3>
+      </div>
+      
+      <div id="four-hour-content" class="timer-content">
+        <div class="timer-stat-row">
+          <span class="stat-label">Start:</span>
+          <span id="4h-start" class="stat-value">--:--</span>
+        </div>
+        <div class="timer-stat-row">
+          <span class="stat-label">End:</span>
+          <span id="4h-end" class="stat-value">--:--</span>
+          <button id="set-4h-end" class="btn-icon" title="Set end time">📅</button>
+        </div>
+        <div class="timer-stat-row">
+          <span class="stat-label">Tokens:</span>
+          <span id="4h-tokens" class="stat-value">0 / ~50,000</span>
+        </div>
+        <div class="progress-bar">
+          <div id="4h-progress" class="progress-fill" style="width: 0%"></div>
+        </div>
+        <div class="timer-stat-row">
+          <span class="stat-label">Remaining:</span>
+          <span id="4h-remaining" class="stat-value">--</span>
+        </div>
+      </div>
+      
+      <div class="timer-actions">
+        <button id="start-4h" class="btn btn-sm btn-primary">Start</button>
+        <button id="reset-4h" class="btn btn-sm btn-secondary">Reset</button>
+      </div>
+    </div>
+    
+    <div class="divider"></div>
+    
+    <!-- Weekly Timer -->
+    <div class="popup-section">
+      <div class="timer-header">
+        <h3 class="timer-title">📅 Weekly Limit</h3>
+      </div>
+      
+      <div id="weekly-content" class="timer-content">
+        <div class="timer-stat-row">
+          <span class="stat-label">Week Start:</span>
+          <span id="week-start" class="stat-value">Monday 00:00</span>
+        </div>
+        <div class="timer-stat-row">
+          <span class="stat-label">Tokens:</span>
+          <span id="week-tokens" class="stat-value">0 / ~200,000</span>
+        </div>
+        <div class="progress-bar">
+          <div id="week-progress" class="progress-fill" style="width: 0%"></div>
+        </div>
+        <div class="timer-stat-row">
+          <span class="stat-label">Reset in:</span>
+          <span id="week-reset" class="stat-value">--</span>
+        </div>
+      </div>
+      
+      <div class="timer-actions">
+        <button id="start-weekly" class="btn btn-sm btn-primary">Start</button>
+        <button id="reset-weekly" class="btn btn-sm btn-secondary">Reset</button>
+      </div>
+    </div>
+    
+    <div class="divider"></div>
+    
+    <!-- Overlay Toggle -->
+    <div class="popup-section">
+      <div class="control-row">
+        <div class="control-label">
+          <span class="control-icon">👁️</span>
+          <span>Round Viewer</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="overlay-toggle">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+    
+    <div class="divider"></div>
+    
+    <!-- Action Buttons -->
+    <div class="popup-section">
+      <div class="action-buttons">
+        <button id="open-stats" class="btn btn-secondary">
+          📊 Statistics
+        </button>
+        <button id="open-settings" class="btn btn-secondary">
+          ⚙️ Settings
+        </button>
+      </div>
+    </div>
+    
+    <div class="divider"></div>
+    
+    <!-- Support -->
+    <div class="popup-section">
+      <div class="support-box">
+        <p class="support-text">☕ Support the project!</p>
+        <button id="support-btn" class="btn btn-sm btn-ghost">❤️ Donate</button>
+      </div>
+    </div>
+  </div>
+  
+  <script src="../shared/constants.js"></script>
+  <script src="../shared/utils.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

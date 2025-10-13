@@ -1,0 +1,68 @@
+{
+  "manifest_version": 3,
+  "name": "Claude Token Tracker",
+  "version": "1.0.0",
+  "description": "Real-time token usage tracking for Claude.ai with chat-based analytics and usage limits",
+  
+  "icons": {
+    "16": "src/assets/icons/icon16.png",
+    "48": "src/assets/icons/icon48.png",
+    "128": "src/assets/icons/icon128.png"
+  },
+  
+  "permissions": [
+    "storage",
+    "activeTab",
+    "notifications"
+  ],
+  
+  "host_permissions": [
+    "https://claude.ai/*"
+  ],
+  
+  "background": {
+    "service_worker": "src/background/worker.js",
+    "type": "module"
+  },
+  
+  "content_scripts": [
+    {
+      "matches": ["https://claude.ai/*"],
+      "js": [
+        "src/shared/constants.js",
+        "src/shared/utils.js",
+        "src/shared/estimator.js",
+        "src/content/interceptor.js",
+        "src/content/dom-observer.js",
+        "src/content/overlay.js",
+        "src/content/tracker.js"
+      ],
+      "css": [
+        "src/assets/styles/common.css",
+        "src/content/overlay.css"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "src/assets/icons/icon16.png",
+      "48": "src/assets/icons/icon48.png",
+      "128": "src/assets/icons/icon128.png"
+    }
+  },
+  
+  "options_page": "src/options/options.html",
+  
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/stats/stats.html",
+        "src/assets/styles/common.css"
+      ],
+      "matches": ["https://claude.ai/*"]
+    }
+  ]
+}

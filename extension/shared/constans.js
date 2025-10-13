@@ -1,0 +1,150 @@
+/**
+ * CLAUDE TOKEN TRACKER - CONSTANTS
+ * Central configuration for the extension
+ */
+
+const CONSTANTS = {
+  // === EXTENSION INFO ===
+  VERSION: '1.0.0',
+  NAME: 'Claude Token Tracker',
+  
+  // === DEFAULT SETTINGS ===
+  DEFAULTS: {
+    trackingEnabled: true,
+    
+    tokenEstimation: {
+      central: 2.6,
+      overrides: {
+        userMessage: null,
+        userDocuments: 2.8,
+        thinking: 2.4,
+        assistant: null,
+        toolContent: 2.2
+      }
+    },
+    
+    consoleSpamFilter: true,
+    debugMode: false,
+    
+    overlayEnabled: false,
+    overlayPosition: { x: 20, y: 100 },
+    
+    warningThresholds: {
+      fourHour: 0.9,   // 90%
+      weekly: 0.9      // 90%
+    },
+    
+    estimatedLimits: {
+      fourHour: 50000,    // Estimated 4h token limit
+      weekly: 200000      // Estimated weekly token limit
+    },
+    
+    weekStartDay: 'Monday',
+    weekStartTime: '00:00'
+  },
+  
+  // === CONSOLE SPAM PATTERNS ===
+  SPAM_PATTERNS: [
+    'IsolatedSegment',
+    'NOTIFICATION API DEBUG',
+    'Violation',
+    'Preferences fetched',
+    'Intercom',
+    'handler took',
+    'Forced reflow',
+    'honeycombio',
+    'opentelemetry',
+    'statsig',
+    'Analytics loaded',
+    'Message received',
+    'sendMessage called',
+    'Launcher is disabled',
+    'iframe_ready',
+    'segment_initialized',
+    'Processing message',
+    'Identify completed',
+    'requestAnimationFrame',
+    'setTimeout',
+    'deterministic sampler'
+  ],
+  
+  // === API ENDPOINTS ===
+  ENDPOINTS: {
+    COMPLETION: '/completion',
+    CHAT: '/chat',
+    MODEL: '/model',
+    PREFERENCES: '/chat_preferences'
+  },
+  
+  // === IMPORTANT ENDPOINTS FOR DEBUG ===
+  IMPORTANT_ENDPOINTS: [
+    '/completion',
+    '/chat',
+    '/model',
+    '/chat_preferences'
+  ],
+  
+  // === URL PATTERNS ===
+  URL_PATTERNS: {
+    CHAT: /\/chat\/([a-zA-Z0-9-]+)/,
+    PROJECT: /\/project\/([a-zA-Z0-9-]+)\/chat\/([a-zA-Z0-9-]+)/
+  },
+  
+  // === DOM SELECTORS ===
+  SELECTORS: {
+    MODEL_BUTTON: '[data-testid="model-selector-dropdown"] .whitespace-nowrap',
+    CHAT_TITLE: '[data-testid="chat-title"]',
+    MESSAGE_CONTAINER: '[data-testid="message-container"]'
+  },
+  
+  // === MESSAGE TYPES (for chrome.runtime.sendMessage) ===
+  MSG_TYPES: {
+    ROUND_COMPLETED: 'ROUND_COMPLETED',
+    GET_CHAT_DATA: 'GET_CHAT_DATA',
+    GET_GLOBAL_STATS: 'GET_GLOBAL_STATS',
+    GET_TIMER_STATUS: 'GET_TIMER_STATUS',
+    RESET_TIMER: 'RESET_TIMER',
+    SET_TIMER_END: 'SET_TIMER_END',
+    TOGGLE_TRACKING: 'TOGGLE_TRACKING',
+    UPDATE_SETTINGS: 'UPDATE_SETTINGS',
+    EXPORT_DATA: 'EXPORT_DATA',
+    DELETE_CHAT: 'DELETE_CHAT',
+    RESET_ALL_DATA: 'RESET_ALL_DATA',
+    GET_SETTINGS: 'GET_SETTINGS',
+    TOGGLE_OVERLAY: 'TOGGLE_OVERLAY',
+    UPDATE_OVERLAY: 'UPDATE_OVERLAY'
+  },
+  
+  // === STORAGE KEYS ===
+  STORAGE_KEYS: {
+    CHATS: 'chats',
+    TIMERS: 'timers',
+    SETTINGS: 'settings',
+    VERSION: 'version'
+  },
+  
+  // === TIMER TYPES ===
+  TIMER_TYPES: {
+    FOUR_HOUR: 'fourHour',
+    WEEKLY: 'weekly'
+  },
+  
+  // === CHAT TYPES ===
+  CHAT_TYPES: {
+    PROJECT: 'project',
+    CHAT: 'chat',
+    UNKNOWN: 'unknown'
+  },
+  
+  // === THRESHOLDS ===
+  LARGE_DOCUMENT_THRESHOLD: 100000,  // chars
+  SAVE_DELAY_MS: 500,
+  
+  // === DAYS OF WEEK ===
+  DAYS: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+};
+
+// Export for use in other files
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = CONSTANTS;
+}

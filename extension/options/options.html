@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Token Tracker - Settings</title>
+  <link rel="stylesheet" href="../assets/styles/common.css">
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="options-container">
+    <!-- Header -->
+    <header class="options-header">
+      <div class="header-content">
+        <h1 class="options-title">Claude Token Tracker</h1>
+        <p class="options-subtitle">Settings & Configuration</p>
+      </div>
+      <div class="header-actions">
+        <button id="save-settings" class="btn btn-primary">💾 Save Settings</button>
+        <button id="reset-defaults" class="btn btn-ghost">↩️ Reset to Defaults</button>
+      </div>
+    </header>
+
+    <div class="options-content">
+      <!-- TOKEN ESTIMATION -->
+      <section class="settings-section">
+        <div class="section-header">
+          <h2 class="section-title">📏 Token Estimation</h2>
+          <p class="section-description">Configure how character counts are converted to token estimates</p>
+        </div>
+
+        <div class="settings-group">
+          <div class="setting-item">
+            <label class="setting-label">
+              <span class="label-text">Central Ratio</span>
+              <span class="label-description">Default chars/token ratio for all content types</span>
+            </label>
+            <input type="number" id="central-ratio" class="input" value="2.6" step="0.1" min="1" max="5">
+          </div>
+
+          <div class="subsection">
+            <h3 class="subsection-title">Type-specific Fine-tuning</h3>
+            <p class="subsection-description">Override central ratio for specific content types. Leave empty to use central ratio.</p>
+
+            <div class="setting-item">
+              <label class="setting-label">
+                <span class="label-text">👤 User Message</span>
+              </label>
+              <input type="number" id="ratio-user" class="input" placeholder="Use central" step="0.1" min="1" max="5">
+            </div>
+
+            <div class="setting-item">
+              <label class="setting-label">
+                <span class="label-text">📄 User Documents</span>
+              </label>
+              <input type="number" id="ratio-docs" class="input" placeholder="Use central" step="0.1" min="1" max="5">
+            </div>
+
+            <div class="setting-item">
+              <label class="setting-label">
+                <span class="label-text">🧠 Thinking</span>
+              </label>
+              <input type="number" id="ratio-thinking" class="input" placeholder="Use central" step="0.1" min="1" max="5">
+            </div>
+
+            <div class="setting-item">
+              <label class="setting-label">
+                <span class="label-text">🤖 Assistant</span>
+              </label>
+              <input type="number" id="ratio-assistant" class="input" placeholder="Use central" step="0.1" min="1" max="5">
+            </div>
+
+            <div class="setting-item">
+              <label class="setting-label">
+                <span class="label-text">🔧 Tool Content</span>
+              </label>
+              <input type="number" id="ratio-tool" class="input" placeholder="Use central" step="0.1" min="1" max="5">
+            </div>
+          </div>
+
+          <div class="info-box">
+            <p class="info-text">💡 <strong>Tips:</strong></p>
+            <p class="info-text">• Code-heavy content: 2.0-2.4 chars/token</p>
+            <p class="info-text">• Regular text: ~2.6 chars/token</p>
+            <p class="info-text">• Documents/PDFs: 2.8-3.0 chars/token</p>
+          </div>
+        </div>
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- TIMER SETTINGS -->
+      <section class="settings-section">
+        <div class="section-header">
+          <h2 class="section-title">⏱️ Timer Settings</h2>
+          <p class="section-description">Configure usage limit tracking</p>
+        </div>
+
+        <div class="settings-group">
+          <h3 class="subsection-title">4-Hour Limit</h3>
+          
+          <div class="setting-item">
+            <label class="setting-label">
+              <span class="label-text">Warning Threshold</span>
+              <span class="label-description">Show warning at this percentage</span>
+            </label>
+            <div class="input-with-unit">
+              <input type="number" id="4h-threshold" class="input" value="90" min="50" max="100">
+              <span class="input-unit">%</span>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <label class="setting-label">
+              <span class="label-text">Estimated Limit</span>
+              <span class="label-description">Expected 4-hour token limit</span>
+            </label>
+            <div class="input-with-unit">
+              <input type="number" id="4h-limit" class="input" value="50000" step="1000" min="1000">
+              <span class="input-unit">tokens</span>
+            </div>
+          </div>
+
+          <h3 class="subsection-title mt-6">Weekly Limit</h3>
+
+          <div class="setting-item">
+            <label class="setting-label">
+              <span class="label-text">Week Start Day</span>
+            </label>
+            <select id="week-start-day" class="input">
+              <option value="Monday">Monday</option>
+              <option value="Tuesday">Tuesday</option>
+              <option value="Wednesday">Wednesday</option>
+              <option value="Thursday">Thursday</option>
+              <option value="Friday">Friday</option>
+              <option value="Saturday">Saturday</option>
+              <option value="Sunday">Sunday</option>
+            </select>
+          </div>
+
+          <div class="setting-item">
+            <label class="setting-label">
+              <span class="label-text">Week Start Time</span>
+            </label>
+            <input type="time" id="week-start-time" class="input" value="00:00">
+          </div>
+
+          <div class="setting-item">
+            <label class="setting-label">
+              <span class="label-text">Warning Threshold</span>
+              <span class="label-description">Show warning at this percentage</span>
+            </label>
+            <div class="input-with-unit">
+              <input type="number" id="week-threshold" class="input" value="90" min="50" max="100">
+              <span class="input-unit">%</span>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <label class="setting-label">
+              <span class="label-text">Estimated Limit</span>
+              <span class="label-description">Expected weekly token limit</span>
+            </label>
+            <div class="input-with-unit">
+              <input type="number" id="week-limit" class="input" value="200000" step="5000" min="5000">
+              <span class="input-unit">tokens</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- OVERLAY SETTINGS -->
+      <section class="settings-section">
+        <div class="section-header">
+          <h2 class="section-title">🎨 Overlay Settings</h2>
+          <p class="section-description">Configure the floating round viewer widget</p>
+        </div>
+
+        <div class="settings-group">
+          <div class="setting-item checkbox-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="overlay-default" class="checkbox">
+              <span class="checkbox-text">Enable overlay by default on new chats</span>
+            </label>
+          </div>
+
+          <div class="setting-item checkbox-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="overlay-remember-position" class="checkbox" checked>
+              <span class="checkbox-text">Remember overlay position</span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- ADVANCED SETTINGS -->
+      <section class="settings-section">
+        <div class="section-header">
+          <h2 class="section-title">🔧 Advanced</h2>
+          <p class="section-description">Developer and power user options</p>
+        </div>
+
+        <div class="settings-group">
+          <div class="setting-item checkbox-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="console-filter" class="checkbox" checked>
+              <span class="checkbox-text">Console spam filter</span>
+              <span class="checkbox-description">Filter out noisy console messages from Claude.ai</span>
+            </label>
+          </div>
+
+          <div class="setting-item checkbox-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="debug-mode" class="checkbox">
+              <span class="checkbox-text">Debug mode</span>
+              <span class="checkbox-description">Show detailed logging in console (may impact performance)</span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- DATA MANAGEMENT -->
+      <section class="settings-section">
+        <div class="section-header">
+          <h2 class="section-title">💾 Data Management</h2>
+          <p class="section-description">Export, import, or reset your tracking data</p>
+        </div>
+
+        <div class="settings-group">
+          <div class="data-actions">
+            <button id="export-data" class="btn btn-secondary">
+              <span>📥</span>
+              <span>Export Data (JSON)</span>
+            </button>
+            <button id="import-data" class="btn btn-secondary">
+              <span>📤</span>
+              <span>Import Data</span>
+            </button>
+            <button id="reset-data" class="btn btn-danger">
+              <span>🗑️</span>
+              <span>Reset All Data</span>
+            </button>
+          </div>
+          <input type="file" id="import-file" accept=".json" style="display: none;">
+
+          <div class="info-box warning-box">
+            <p class="info-text">⚠️ <strong>Warning:</strong> Resetting will permanently delete all tracked conversations and statistics. This action cannot be undone.</p>
+          </div>
+
+          <div class="storage-info" id="storage-info">
+            <p class="storage-text">Storage used: <strong id="storage-used">Loading...</strong> of <strong id="storage-quota">--</strong></p>
+          </div>
+        </div>
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- SUPPORT SECTION -->
+      <section class="settings-section support-section">
+        <div class="section-header">
+          <h2 class="section-title">☕ Support the Project</h2>
+          <p class="section-description">Enjoying Claude Token Tracker? Consider supporting its development!</p>
+        </div>
+
+        <div class="support-content">
+          <p class="support-text">
+            This extension is free and open-source. Your support helps me maintain and improve it with new features, bug fixes, and updates.
+          </p>
+
+          <div class="support-buttons">
+            <a href="https://ko-fi.com/yourname" target="_blank" class="btn btn-primary support-btn">
+              <span>☕</span>
+              <span>Buy me a coffee</span>
+            </a>
+            <a href="https://github.com/yourname/claude-token-tracker" target="_blank" class="btn btn-ghost support-btn">
+              <span>⭐</span>
+              <span>Star on GitHub</span>
+            </a>
+          </div>
+
+          <p class="support-thanks">Thank you for your support! 💙</p>
+        </div>
+      </section>
+    </div>
+
+    <!-- Footer -->
+    <footer class="options-footer">
+      <div class="footer-content">
+        <p class="footer-text">Claude Token Tracker v1.0.0</p>
+        <div class="footer-links">
+          <a href="https://github.com/yourname/claude-token-tracker" target="_blank">GitHub</a>
+          <span>•</span>
+          <a href="#" id="open-stats">Statistics</a>
+          <span>•</span>
+          <a href="https://github.com/yourname/claude-token-tracker/issues" target="_blank">Report Issue</a>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Save notification -->
+    <div id="save-notification" class="notification hidden">
+      <span class="notification-icon">✅</span>
+      <span class="notification-text">Settings saved successfully!</span>
+    </div>
+  </div>
+
+  <script src="../shared/constants.js"></script>
+  <script src="../shared/utils.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

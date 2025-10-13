@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Token Tracker - Statistics</title>
+  <link rel="stylesheet" href="../assets/styles/common.css">
+  <link rel="stylesheet" href="stats.css">
+</head>
+<body>
+  <div class="stats-container">
+    <!-- Header -->
+    <header class="stats-header">
+      <div class="header-content">
+        <button id="back-btn" class="btn-back hidden">
+          <span>◄</span>
+          <span>Back</span>
+        </button>
+        <div class="header-text">
+          <h1 class="stats-title">Statistics</h1>
+          <p class="stats-subtitle" id="stats-subtitle">Comprehensive token usage tracking</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="export-btn" class="btn btn-ghost">📥 Export</button>
+        <button id="settings-btn" class="btn btn-ghost">⚙️ Settings</button>
+      </div>
+    </header>
+
+    <!-- Main View -->
+    <div id="main-view" class="stats-content">
+      <!-- Filters -->
+      <section class="filter-section">
+        <div class="filter-buttons">
+          <button class="filter-btn active" data-filter="all">All Time</button>
+          <button class="filter-btn" data-filter="week">This Week</button>
+          <button class="filter-btn" data-filter="today">Today</button>
+          <button class="filter-btn" data-filter="4h">Last 4 Hours</button>
+        </div>
+      </section>
+
+      <!-- Summary Cards -->
+      <section class="summary-section">
+        <div class="summary-cards">
+          <div class="summary-card">
+            <div class="card-icon">⏱️</div>
+            <div class="card-content">
+              <h3 class="card-title">4 Hour Usage</h3>
+              <p class="card-value" id="summary-4h">0 tokens</p>
+              <p class="card-subtitle" id="summary-4h-sub">0 rounds • 0 chats</p>
+            </div>
+          </div>
+
+          <div class="summary-card">
+            <div class="card-icon">📅</div>
+            <div class="card-content">
+              <h3 class="card-title">This Week</h3>
+              <p class="card-value" id="summary-week">0 tokens</p>
+              <p class="card-subtitle" id="summary-week-sub">0 rounds • 0 chats</p>
+            </div>
+          </div>
+
+          <div class="summary-card">
+            <div class="card-icon">🌍</div>
+            <div class="card-content">
+              <h3 class="card-title">All Time</h3>
+              <p class="card-value" id="summary-total">0 tokens</p>
+              <p class="card-subtitle" id="summary-total-sub">0 rounds • 0 chats</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Model Breakdown -->
+      <section class="model-section">
+        <h2 class="section-title">🤖 Model Usage</h2>
+        <div id="model-breakdown" class="model-breakdown">
+          <!-- Populated by JS -->
+        </div>
+      </section>
+
+      <!-- Chat List -->
+      <section class="chat-list-section">
+        <div class="section-header">
+          <h2 class="section-title">💬 Conversations</h2>
+          <div class="list-controls">
+            <input type="text" id="search-chats" class="search-input" placeholder="Search chats...">
+            <select id="sort-chats" class="select-input">
+              <option value="recent">Most Recent</option>
+              <option value="tokens">Most Tokens</option>
+              <option value="rounds">Most Rounds</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="chat-list" class="chat-list">
+          <!-- Populated by JS -->
+        </div>
+
+        <div id="chat-pagination" class="pagination hidden">
+          <button id="prev-page" class="btn btn-sm btn-secondary">◄ Previous</button>
+          <span id="page-info" class="page-info">Page 1 of 1</span>
+          <button id="next-page" class="btn btn-sm btn-secondary">Next ►</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- Detail View -->
+    <div id="detail-view" class="stats-content hidden">
+      <!-- Chat Info -->
+      <section class="chat-detail-header">
+        <div class="chat-info">
+          <h2 class="chat-detail-title" id="detail-title">Chat Title</h2>
+          <div class="chat-meta">
+            <span class="meta-item" id="detail-url">🔗 URL</span>
+            <span class="meta-item" id="detail-created">📅 Created</span>
+            <span class="meta-item" id="detail-active">🕐 Last active</span>
+          </div>
+        </div>
+        <div class="chat-actions">
+          <button id="export-chat-btn" class="btn btn-secondary">📥 Export Chat</button>
+          <button id="delete-chat-btn" class="btn btn-danger">🗑️ Delete</button>
+        </div>
+      </section>
+
+      <!-- Chat Summary -->
+      <section class="chat-summary-section">
+        <h3 class="section-title">📊 Chat Summary</h3>
+        <div class="chat-summary-grid" id="detail-summary">
+          <!-- Populated by JS -->
+        </div>
+      </section>
+
+      <!-- Rounds List -->
+      <section class="rounds-section">
+        <h3 class="section-title" id="rounds-title">🔄 Rounds (0)</h3>
+        <div id="rounds-list" class="rounds-list">
+          <!-- Populated by JS -->
+        </div>
+
+        <div id="rounds-pagination" class="pagination hidden">
+          <button id="rounds-prev-page" class="btn btn-sm btn-secondary">◄ Previous</button>
+          <span id="rounds-page-info" class="page-info">Page 1 of 1</span>
+          <button id="rounds-next-page" class="btn btn-sm btn-secondary">Next ►</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- Empty State -->
+    <div id="empty-state" class="empty-state hidden">
+      <div class="empty-icon">📊</div>
+      <h2 class="empty-title">No tracking data yet</h2>
+      <p class="empty-text">Start using Claude.ai and your conversations will appear here automatically.</p>
+      <button id="enable-tracking-btn" class="btn btn-primary">Enable Tracking</button>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading-state" class="loading-state">
+      <div class="loading-spinner"></div>
+      <p class="loading-text">Loading statistics...</p>
+    </div>
+  </div>
+
+  <script src="../shared/constants.js"></script>
+  <script src="../shared/utils.js"></script>
+  <script src="stats.js"></script>
+</body>
+</html>
