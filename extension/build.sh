@@ -13,13 +13,15 @@ cd "$DIR"
 
 echo "[Claude Token Tracker] Cleaning dist directory..."
 rm -rf dist
-mkdir -p dist/popup dist/options dist/overlay dist/workers
+mkdir -p dist/overlay dist/workers
 
 echo "[Claude Token Tracker] Compiling TypeScript..."
 npx tsc --project tsconfig.json
 
 echo "[Claude Token Tracker] Copying static HTML/CSS files..."
-cp src/popup/popup.html src/popup/popup.css dist/popup/
-cp src/options/options.html src/options/options.css dist/options/
+cp src/popup/popup.html dist/popup.html
+cp src/popup/popup.css dist/popup.css
+cp src/options/options.html dist/options.html
+cp src/options/options.css dist/options.css
 
 echo "[Claude Token Tracker] Build complete."
