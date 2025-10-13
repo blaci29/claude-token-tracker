@@ -229,7 +229,7 @@ function getTokenEstimationRate(type) {
   if (SETTINGS.TOKEN_ESTIMATION[type] !== null && SETTINGS.TOKEN_ESTIMATION[type] !== undefined) {
     return SETTINGS.TOKEN_ESTIMATION[type];
   }
-  // Fall back to central setting
+  // Fall back to central setting 
   return SETTINGS.CHARS_PER_TOKEN;
 }
 

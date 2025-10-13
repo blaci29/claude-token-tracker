@@ -1,0 +1,2 @@
+This directory should contain the extension icons.
+Currently, placeholder PNG files will be generated programmatically during development.
