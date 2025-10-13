@@ -27,21 +27,29 @@ const SETTINGS = {
   HIDE_CLAUDE_CONSOLE_SPAM: true,
   
   // Spam patterns to filter out (case-insensitive)
-  CONSOLE_SPAM_PATTERNS: [
-    '[IsolatedSegment]',
-    '[NOTIFICATION API DEBUG]',
-    '[Violation]',
-    'Preferences fetched successfully',
-    'Intercom',
-    'handler took',
-    'Forced reflow',
-    'honeycombio',
-    'statsig.anthropic.com',
-    'Analytics loaded successfully',
-    'Message received from parent',
-    'sendMessage called',
-    'Launcher is disabled'
-  ],
+CONSOLE_SPAM_PATTERNS: [
+  'IsolatedSegment',
+  'NOTIFICATION API DEBUG',
+  'Violation',
+  'Preferences fetched',
+  'Intercom',
+  'handler took',
+  'Forced reflow',
+  'honeycombio',
+  'opentelemetry',
+  'statsig',
+  'Analytics loaded',
+  'Message received',
+  'sendMessage called',
+  'Launcher is disabled',
+  'iframe_ready',
+  'segment_initialized',
+  'Processing message',
+  'Identify completed',
+  'requestAnimationFrame',
+  'setTimeout',
+  'deterministic sampler'
+],
   
   // === CENTRAL TOKEN ESTIMATION ===
   // Default chars per token ratio for ALL content types
@@ -109,6 +117,7 @@ const SETTINGS = {
 // ═══════════════════════════════════════════════════════════════════
 
 // === CONSOLE SPAM FILTER ===
+// === CONSOLE SPAM FILTER (AGGRESSIVE MODE) ===
 if (SETTINGS.HIDE_CLAUDE_CONSOLE_SPAM) {
   // Save original console methods
   const _originalConsoleLog = console.log;
@@ -118,18 +127,26 @@ if (SETTINGS.HIDE_CLAUDE_CONSOLE_SPAM) {
   
   // Helper function to check if message should be filtered
   function shouldFilter(args) {
+    // Convert all arguments to strings
     const message = args.map(arg => {
       if (typeof arg === 'string') return arg;
-      if (typeof arg === 'object') return JSON.stringify(arg);
+      if (typeof arg === 'object') {
+        try {
+          return JSON.stringify(arg);
+        } catch(e) {
+          return String(arg);
+        }
+      }
       return String(arg);
     }).join(' ');
     
+    // Check against all spam patterns
     return SETTINGS.CONSOLE_SPAM_PATTERNS.some(pattern => 
-      message.includes(pattern)
+      message.toLowerCase().includes(pattern.toLowerCase())
     );
   }
   
-  // Override console methods
+  // Override console methods with aggressive filtering
   console.log = function(...args) {
     if (!shouldFilter(args)) {
       _originalConsoleLog.apply(console, args);
@@ -151,6 +168,14 @@ if (SETTINGS.HIDE_CLAUDE_CONSOLE_SPAM) {
   console.info = function(...args) {
     if (!shouldFilter(args)) {
       _originalConsoleInfo.apply(console, args);
+    }
+  };
+  
+  // Also override console.debug
+  const _originalConsoleDebug = console.debug;
+  console.debug = function(...args) {
+    if (!shouldFilter(args)) {
+      _originalConsoleDebug.apply(console, args);
     }
   };
 }
