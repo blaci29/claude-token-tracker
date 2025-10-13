@@ -580,4 +580,4 @@ This is an unofficial tool. Token estimates are approximate. For exact billing, 
 **Last Updated**: 2025-10-13  
 **Compatibility**: Claude.ai web interface
 
-🎯 Happy tracking!
+🎯 Happy tracking! 
