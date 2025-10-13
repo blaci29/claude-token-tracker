@@ -17,9 +17,6 @@ const Interceptor = {
     // Inject into page context (not content script isolated world)
     this.injectPageScript();
     
-    // Also intercept in content script context
-    this.interceptFetch();
-    
     console.log('Interceptor ready');
   },
   
@@ -38,63 +35,62 @@ const Interceptor = {
     // Listen for messages from page
     window.addEventListener('message', (event) => {
       if (event.source !== window) return;
-      if (event.data.type === 'CLAUDE_TRACKER_FETCH') {
-        console.log('📨 Fetch detected from page:', event.data.url);
+      
+      if (event.data.type === 'CLAUDE_TRACKER_COMPLETION_REQUEST') {
+        console.log('📨 Completion request from page:', event.data);
+        this.handleCompletionRequest(event.data);
+      }
+      
+      if (event.data.type === 'CLAUDE_TRACKER_SSE_EVENT') {
+        this.handleSSEEvent(event.data.event);
       }
     });
   },
   
   /**
-   * Intercept fetch requests
+   * Handle SSE events (like Tampermonkey version)
    */
-  interceptFetch() {
-    const _originalFetch = window.fetch;
+  handleSSEEvent(data) {
+    if (!this.currentRound) return;
     
-    window.fetch = async function(url, options = {}) {
-      // Log ALL fetch requests for debugging
-      const urlString = typeof url === 'string' ? url : url.toString();
-      console.log('🌐 Fetch:', urlString);
+    const round = this.currentRound.round;
+    
+    // content_block_delta - text/thinking chunks
+    if (data.type === 'content_block_delta') {
+      const delta = data.delta;
       
-      // Check if this is a completion request
-      if (urlString.includes(CONSTANTS.ENDPOINTS.COMPLETION)) {
-        console.log('🟢 Completion request detected');
-        
-        // Extract data from request
-        if (options && options.body) {
-          try {
-            const body = JSON.parse(options.body);
-            const promptText = body.prompt || '';
-            
-            // Start new round
-            Interceptor.startNewRound(promptText, body);
-            
-          } catch(e) {
-            console.error('Error parsing request body:', e);
-          }
-        }
+      if (delta.type === 'text_delta' && delta.text) {
+        round.assistant.text += delta.text;
+        round.assistant.chars = round.assistant.text.length;
       }
       
-      // Call original fetch
-      const response = await _originalFetch(url, options);
-      
-      // Process completion response
-      if (urlString.includes(CONSTANTS.ENDPOINTS.COMPLETION)) {
-        const contentType = response.headers.get('content-type') || '';
-        
-        if (contentType.includes('text/event-stream')) {
-          const clonedResponse = response.clone();
-          Interceptor.processSSEStream(clonedResponse.body);
-        }
+      if (delta.type === 'thinking_delta' && delta.thinking) {
+        round.thinking.text += delta.thinking;
+        round.thinking.chars = round.thinking.text.length;
+        round.hasThinking = true;
       }
       
-      return response;
-    };
+      if (delta.type === 'input_json_delta' && delta.partial_json) {
+        round.toolContent.text += delta.partial_json;
+        round.toolContent.chars = round.toolContent.text.length;
+      }
+    }
+    
+    // message_delta - stop reason indicates completion
+    if (data.type === 'message_delta') {
+      if (data.delta?.stop_reason) {
+        console.log('🏁 Message complete, stop reason:', data.delta.stop_reason);
+        this.finishRound();
+      }
+    }
   },
   
   /**
-   * Start new round
+   * Handle completion request
    */
-  startNewRound(promptText, body) {
+  handleCompletionRequest(data) {
+    console.log('Starting new round from completion request');
+    
     // Get current chat info
     const chatInfo = Utils.extractChatInfo(window.location.href);
     
@@ -114,9 +110,9 @@ const Interceptor = {
         hasThinking: false,
         
         user: {
-          chars: promptText.length
+          chars: data.promptText ? data.promptText.length : 0
         },
-        documents: {
+        documents: data.documents || {
           chars: 0,
           count: 0
         },
@@ -135,118 +131,9 @@ const Interceptor = {
       }
     };
     
-    // Check for documents
-    this.extractDocuments(body);
-    
     console.log('Round started:', this.currentRound);
   },
   
-  /**
-   * Extract documents from request body
-   */
-  extractDocuments(body) {
-    let docChars = 0;
-    let docCount = 0;
-    
-    // Check attachments
-    if (body.attachments && Array.isArray(body.attachments)) {
-      body.attachments.forEach((att) => {
-        if (att.extracted_content) {
-          docChars += att.extracted_content.length;
-          docCount++;
-        }
-        if (att.content) {
-          docChars += att.content.length;
-          docCount++;
-        }
-      });
-    }
-    
-    // Check files
-    if (body.files && Array.isArray(body.files)) {
-      body.files.forEach((file) => {
-        if (file.content) {
-          docChars += file.content.length;
-          docCount++;
-        }
-        if (file.extracted_content) {
-          docChars += file.extracted_content.length;
-          docCount++;
-        }
-      });
-    }
-    
-    if (docChars > 0) {
-      this.currentRound.round.documents.chars = docChars;
-      this.currentRound.round.documents.count = docCount;
-      console.log(`📄 Documents: ${docChars} chars, ${docCount} file(s)`);
-    }
-  },
-  
-  /**
-   * Process SSE stream
-   */
-  async processSSEStream(stream) {
-    const reader = stream.getReader();
-    const decoder = new TextDecoder();
-    
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
-        
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.substring(6));
-              this.processSSEEvent(data);
-            } catch(e) {
-              // Ignore parse errors
-            }
-          }
-        }
-      }
-    } catch(e) {
-      console.error('Error reading stream:', e);
-    }
-  },
-  
-  /**
-   * Process SSE event
-   */
-  processSSEEvent(data) {
-    if (!this.currentRound) return;
-    
-    // Capture thinking
-    if (data.type === 'content_block_delta' && data.delta?.type === 'thinking_delta') {
-      const text = data.delta.thinking || '';
-      this.currentRound.round.thinking.text += text;
-      this.currentRound.round.hasThinking = true;
-    }
-    
-    // Capture text (assistant response)
-    if (data.type === 'content_block_delta' && data.delta?.type === 'text_delta') {
-      const text = data.delta.text || '';
-      this.currentRound.round.assistant.text += text;
-    }
-    
-    // Capture tool content (files/artifacts)
-    if (data.type === 'content_block_delta' && data.delta?.type === 'input_json_delta') {
-      const text = data.delta.partial_json || '';
-      this.currentRound.round.toolContent.text += text;
-    }
-    
-    // Detect end of message
-    if (data.type === 'message_delta' && data.delta?.stop_reason) {
-      console.log('🏁 Response completed');
-      setTimeout(() => {
-        this.finishRound();
-      }, CONSTANTS.SAVE_DELAY_MS);
-    }
-  },
   
   /**
    * Finish round and send to worker
