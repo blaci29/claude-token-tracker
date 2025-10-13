@@ -3,12 +3,12 @@
  * Central configuration for the extension
  */
 
-export const CONSTANTS = {
-  // === EXTENSION INFO ===
+const CONSTANTS = {
+  // VERSION INFO
   VERSION: '1.0.0',
   NAME: 'Claude Token Tracker',
   
-  // === DEFAULT SETTINGS ===
+  // DEFAULT SETTINGS
   DEFAULTS: {
     trackingEnabled: true,
     
@@ -43,7 +43,7 @@ export const CONSTANTS = {
     weekStartTime: '00:00'
   },
   
-  // === CONSOLE SPAM PATTERNS ===
+  // SPAM PATTERNS
   SPAM_PATTERNS: [
     'IsolatedSegment',
     'NOTIFICATION API DEBUG',
@@ -68,7 +68,7 @@ export const CONSTANTS = {
     'deterministic sampler'
   ],
   
-  // === API ENDPOINTS ===
+  // API ENDPOINTS
   ENDPOINTS: {
     COMPLETION: '/completion',
     CHAT: '/chat',
@@ -76,7 +76,7 @@ export const CONSTANTS = {
     PREFERENCES: '/chat_preferences'
   },
   
-  // === IMPORTANT ENDPOINTS FOR DEBUG ===
+  // IMPORTANT ENDPOINTS
   IMPORTANT_ENDPOINTS: [
     '/completion',
     '/chat',
@@ -84,20 +84,20 @@ export const CONSTANTS = {
     '/chat_preferences'
   ],
   
-  // === URL PATTERNS ===
+  // URL PATTERNS
   URL_PATTERNS: {
     CHAT: /\/chat\/([a-zA-Z0-9-]+)/,
     PROJECT: /\/project\/([a-zA-Z0-9-]+)\/chat\/([a-zA-Z0-9-]+)/
   },
   
-  // === DOM SELECTORS ===
+  // DOM SELECTORS
   SELECTORS: {
     MODEL_BUTTON: '[data-testid="model-selector-dropdown"] .whitespace-nowrap',
     CHAT_TITLE: '[data-testid="chat-title"]',
     MESSAGE_CONTAINER: '[data-testid="message-container"]'
   },
   
-  // === MESSAGE TYPES ===
+  // MESSAGE TYPES
   MSG_TYPES: {
     ROUND_COMPLETED: 'ROUND_COMPLETED',
     GET_CHAT_DATA: 'GET_CHAT_DATA',
@@ -115,7 +115,7 @@ export const CONSTANTS = {
     UPDATE_OVERLAY: 'UPDATE_OVERLAY'
   },
   
-  // === STORAGE KEYS ===
+  // STORAGE KEYS
   STORAGE_KEYS: {
     CHATS: 'chats',
     TIMERS: 'timers',
@@ -123,23 +123,38 @@ export const CONSTANTS = {
     VERSION: 'version'
   },
   
-  // === TIMER TYPES ===
+  // TIMER TYPES
   TIMER_TYPES: {
     FOUR_HOUR: 'fourHour',
     WEEKLY: 'weekly'
   },
   
-  // === CHAT TYPES ===
+  // CHAT TYPES
   CHAT_TYPES: {
     PROJECT: 'project',
     CHAT: 'chat',
     UNKNOWN: 'unknown'
   },
   
-  // === THRESHOLDS ===
+  // THRESHOLDS
   LARGE_DOCUMENT_THRESHOLD: 100000,
   SAVE_DELAY_MS: 500,
   
-  // === DAYS OF WEEK ===
+  // DAYS
   DAYS: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 };
+
+// Make available globally (for content scripts and other non-module contexts)
+if (typeof window !== 'undefined') {
+  window.CONSTANTS = CONSTANTS;
+}
+
+// Make available in worker/service worker context
+if (typeof self !== 'undefined' && self !== window) {
+  self.CONSTANTS = CONSTANTS;
+}
+
+// Export for ES6 modules (for service worker with type="module")
+if (typeof exports !== 'undefined') {
+  exports.CONSTANTS = CONSTANTS;
+}

@@ -3,12 +3,10 @@
  * Helper functions used across the extension
  */
 
-import { CONSTANTS } from './constants.js';
-
-export const Utils = {
+const Utils = {
   
   /**
-   * Generate a unique hash from a string (simple implementation)
+   * Generate a unique hash from a string
    */
   hashString(str) {
     let hash = 0;
@@ -24,21 +22,24 @@ export const Utils = {
    * Extract chat ID from URL
    */
   extractChatInfo(url) {
-    const projectMatch = url.match(CONSTANTS.URL_PATTERNS.PROJECT);
+    // Access CONSTANTS from global scope
+    const CONST = (typeof CONSTANTS !== 'undefined') ? CONSTANTS : (typeof window !== 'undefined' ? window.CONSTANTS : self.CONSTANTS);
+    
+    const projectMatch = url.match(CONST.URL_PATTERNS.PROJECT);
     if (projectMatch) {
       return {
         id: projectMatch[2],
-        type: CONSTANTS.CHAT_TYPES.PROJECT,
+        type: CONST.CHAT_TYPES.PROJECT,
         url: url,
         projectId: projectMatch[1]
       };
     }
     
-    const chatMatch = url.match(CONSTANTS.URL_PATTERNS.CHAT);
+    const chatMatch = url.match(CONST.URL_PATTERNS.CHAT);
     if (chatMatch) {
       return {
         id: chatMatch[1],
-        type: CONSTANTS.CHAT_TYPES.CHAT,
+        type: CONST.CHAT_TYPES.CHAT,
         url: url,
         projectId: null
       };
@@ -46,7 +47,7 @@ export const Utils = {
     
     return {
       id: this.hashString(url),
-      type: CONSTANTS.CHAT_TYPES.UNKNOWN,
+      type: CONST.CHAT_TYPES.UNKNOWN,
       url: url,
       projectId: null
     };
@@ -152,8 +153,10 @@ export const Utils = {
    * Get start of current week
    */
   getWeekStart(dayName = 'Monday', timeStr = '00:00') {
+    const CONST = (typeof CONSTANTS !== 'undefined') ? CONSTANTS : (typeof window !== 'undefined' ? window.CONSTANTS : self.CONSTANTS);
+    
     const now = new Date();
-    const dayIndex = CONSTANTS.DAYS.indexOf(dayName);
+    const dayIndex = CONST.DAYS.indexOf(dayName);
     const currentDay = now.getDay();
     
     const currentDayMonday = currentDay === 0 ? 6 : currentDay - 1;
@@ -243,3 +246,16 @@ export const Utils = {
     });
   }
 };
+
+// Make available globally
+if (typeof window !== 'undefined') {
+  window.Utils = Utils;
+}
+
+if (typeof self !== 'undefined' && self !== window) {
+  self.Utils = Utils;
+}
+
+if (typeof exports !== 'undefined') {
+  exports.Utils = Utils;
+}
