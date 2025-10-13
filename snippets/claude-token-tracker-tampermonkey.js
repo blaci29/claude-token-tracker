@@ -1,6 +1,17 @@
-// ===================================================================
-// CLAUDE TOKEN TRACKER - SNIPPET VERSION
-// ===================================================================
+// ==UserScript==
+// @name         Claude Token Tracker
+// @namespace    http://tampermonkey.net/
+// @version      1.0
+// @description  Real-time token usage tracking for Claude.ai conversations
+// @author       You
+// @match        https://claude.ai/*
+// @icon         https://www.google.com/s2/favicons?sz=64&domain=claude.ai
+// @grant        none
+// @run-at       document-start
+// ==/UserScript==
+
+(function() {
+    'use strict';
 
 // ═══════════════════════════════════════════════════════════════════
 // ⚙️ USER SETTINGS - CHANGE THESE AS NEEDED
@@ -30,7 +41,7 @@ const SETTINGS = {
 
 console.clear();
 console.log('');
-console.log('🔍 === CLAUDE TOKEN TRACKER INITIALIZED ===');
+console.log('🔍 === CLAUDE TOKEN TRACKER INITIALIZED (TAMPERMONKEY) ===');
 console.log('');
 
 // === DEBUG MODE ===
@@ -816,3 +827,5 @@ console.log('   window.disableDebug()    - Disable debug mode');
 console.log('');
 console.log('💬 Start chatting with Claude to track token usage!');
 console.log('');
+
+})();
