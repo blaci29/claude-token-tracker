@@ -93,6 +93,12 @@ async function handleMessage(message, sender) {
     
     case CONSTANTS.MSG_TYPES.TOGGLE_OVERLAY:
       return await handleToggleOverlay(data);
+
+    case 'GET_ALL_CHATS':
+      return await handleGetAllChats();
+    
+    case 'IMPORT_DATA':
+      return await handleImportData(data);
     
     default:
       throw new Error(`Unknown message type: ${type}`);
@@ -374,6 +380,33 @@ async function handleToggleOverlay(data) {
   console.log(`Overlay ${enabled ? 'enabled' : 'disabled'}`);
   
   return { overlayEnabled: enabled };
+}
+
+/**
+ * Handle get all chats
+ */
+async function handleGetAllChats() {
+  const chats = await StorageManager.getChats();
+  return chats;
+}
+
+/**
+ * Handle import data
+ */
+async function handleImportData(data) {
+  const { importData } = data;
+  
+  // Validate data structure
+  if (!importData || typeof importData !== 'object') {
+    throw new Error('Invalid import data');
+  }
+  
+  // Import to storage
+  await StorageManager.importData(importData);
+  
+  console.log('Data imported successfully');
+  
+  return { success: true };
 }
 
 console.log('Claude Token Tracker Service Worker ready');
