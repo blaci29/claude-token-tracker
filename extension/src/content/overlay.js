@@ -10,6 +10,7 @@ const OverlayManager = {
   dragOffset: { x: 0, y: 0 },
   currentChatId: null,
   isMinimized: false,
+  isLoading: false,  // Guard against multiple simultaneous loads
   
   /**
    * Initialize overlay
@@ -20,9 +21,12 @@ const OverlayManager = {
     // Check if overlay should be shown
     const settings = await this.getSettings();
     
-    if (settings.overlayEnabled) {
-      this.show();
-    }
+    // TEMPORARILY DISABLED - uncomment when working
+    // if (settings.overlayEnabled) {
+    //   this.show();
+    // }
+    
+    console.log('Overlay is temporarily disabled for debugging');
     
     // Listen for overlay toggle messages
     chrome.runtime.onMessage.addListener((message) => {
@@ -215,6 +219,12 @@ const OverlayManager = {
    * Load chat data
    */
   async loadChatData(chatId) {
+    // Prevent multiple simultaneous loads
+    if (this.isLoading) {
+      console.log('Already loading, skipping...');
+      return;
+    }
+    
     try {
       if (!chatId) {
         console.log('No chatId provided, showing empty state');
@@ -222,7 +232,9 @@ const OverlayManager = {
         return;
       }
       
+      this.isLoading = true;
       console.log('Loading chat data for:', chatId);
+      
       const response = await chrome.runtime.sendMessage({
         type: CONSTANTS.MSG_TYPES.GET_CHAT_DATA,
         data: { chatId }
@@ -244,6 +256,8 @@ const OverlayManager = {
       console.error('Error loading chat data:', error);
       console.error('Error details:', error.message, error.stack);
       this.renderError();
+    } finally {
+      this.isLoading = false;
     }
   },
   
@@ -389,9 +403,11 @@ const OverlayManager = {
    * Update chat title
    */
   async updateChatTitle() {
-    if (this.overlay && this.overlay.style.display !== 'none' && this.currentChatId) {
-      await this.loadChatData(this.currentChatId);
+    // Don't update if overlay doesn't exist or is hidden
+    if (!this.overlay || this.overlay.style.display === 'none' || !this.currentChatId) {
+      return;
     }
+    await this.loadChatData(this.currentChatId);
   },
   
   /**

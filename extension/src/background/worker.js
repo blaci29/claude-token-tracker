@@ -28,10 +28,11 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
 // Message handler
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('Message received:', message.type);
+  console.log('Message received:', message.type, 'from tab:', sender.tab?.id);
   
   handleMessage(message, sender)
     .then(response => {
+      console.log('Sending response for', message.type, ':', response);
       sendResponse({ success: true, data: response });
     })
     .catch(error => {
@@ -39,7 +40,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: false, error: error.message });
     });
   
-  return true;
+  return true; // Keep the message channel open for async response
 });
 
 /**
