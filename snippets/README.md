@@ -1,238 +1,344 @@
 # Claude Token Tracker
 
-Real-time token usage tracking for Claude.ai conversations. Monitor your context window usage with automatic character and token counting.
+Real-time token usage tracking for Claude.ai conversations with advanced features and configurable estimation.
 
-## Features
+## 🎯 Overview
 
-- ✅ **Automatic tracking** - Monitors every conversation round automatically
-- 📊 **Detailed statistics** - Tracks user input, documents, thinking, and assistant responses separately
-- 📄 **Document support** - Counts tokens in attached files (txt, pdf, etc.)
-- 🧠 **Thinking mode support** - Includes thinking blocks in token calculations
-- 💾 **Memory optimized** - Stores only statistics, not full conversation text
-- 📈 **Global statistics** - Cumulative tracking across all conversation rounds
-- 🔄 **Export functionality** - Export data as JSON or blob URL
+Claude Token Tracker is a Tampermonkey userscript that monitors and tracks token usage in your Claude.ai conversations. It provides detailed statistics, model detection, thinking process tracking, and exports your data for analysis.
 
-## Installation
+**Why use this?** Claude.ai doesn't show token counts in the interface. This tracker estimates token usage based on character counts, helping you:
+- Monitor conversation costs
+- Track context window usage
+- Analyze model performance
+- Optimize your prompts
 
-### Method 1: Browser Console Snippet (Recommended)
+## ✨ Features
 
-1. Open Claude.ai in your browser
-2. Open Developer Tools (F12 or Right-click → Inspect)
-3. Go to the **Sources** tab → **Snippets** (left sidebar)
-4. Click **+ New snippet**
-5. Name it "Claude Token Tracker"
-6. Paste the contents of `claude-token-tracker.js`
-7. Right-click the snippet → **Run**
+- ✅ **Automatic Token Tracking** - Tracks every conversation round
+- ✅ **Model Detection** - Identifies which Claude model you're using (Sonnet, Opus, Haiku)
+- ✅ **Thinking Detection** - Tracks extended thinking tokens separately
+- ✅ **Document Support** - Handles attached files (PDF, TXT, etc.)
+- ✅ **Configurable Estimation** - Fine-tune token estimation per content type
+- ✅ **Console Spam Filter** - Clean console by filtering Claude.ai's debug messages
+- ✅ **Debug Mode** - Detailed logging and export capabilities
+- ✅ **Model Statistics** - Per-model analytics and comparisons
+- ✅ **Memory Optimized** - Clears text content after processing
+- ✅ **Export Data** - JSON export and clipboard copy
 
-The tracker will now monitor all your conversations in that tab!
+## 📊 Token Estimation
 
-### Method 2: Browser Console
+The tracker uses character-based token estimation:
 
-1. Open Claude.ai
-2. Open Developer Tools Console (F12)
-3. Copy and paste the entire `claude-token-tracker.js` script
-4. Press Enter
+- **Default**: 2.6 chars/token (~3-5% accuracy)
+- **Configurable** per content type:
+  - User messages
+  - Documents
+  - Thinking
+  - Assistant responses
+  - Tool content (artifacts, code)
 
-Note: This method requires re-running the script each time you refresh the page.
+### Fine-Tuning Guide
 
-## Usage
+Different content types have different token densities:
 
-Once the tracker is running, it will automatically monitor your conversations. After each response from Claude, you'll see statistics in the console:
+1. **Code** (dense): 2.0-2.4 chars/token
+   - Contains symbols, brackets, operators
+2. **Natural Text** (normal): 2.6 chars/token
+   - Regular conversation, explanations
+3. **Documents** (sparse): 2.8-3.0 chars/token
+   - PDFs, formatted text files
 
-```
-═══════════════════════════════════════════════════════
-✅ ROUND #1 COMPLETED @ 14:32:15
-═══════════════════════════════════════════════════════
-📤 USER:      156 chars (~60 tokens)
-📄 DOCUMENTS (1): 5,267 chars (~2,026 tokens)
-🧠 THINKING:  842 chars (~324 tokens)
-💬 ASSISTANT: 1,234 chars (~475 tokens)
+## 🚀 Installation
 
-📊 ROUND TOTAL: 7,499 chars (~2,885 tokens)
-───────────────────────────────────────────────────────
-🌍 GLOBAL TOTALS:
-   Total rounds: 1
-   User:      156 chars (~60 tokens)
-   Documents: 5,267 chars (~2,026 tokens)
-   Thinking:  842 chars (~324 tokens)
-   Assistant: 1,234 chars (~475 tokens)
-   ─────────────────────────────────────
-   TOTAL:     7,499 chars (~2,885 tokens)
-═══════════════════════════════════════════════════════
-```
+### Prerequisites
 
-## Available Commands
+- [Tampermonkey](https://www.tampermonkey.net/) browser extension
+- Supported browsers: Chrome, Firefox, Edge, Safari
 
-Open the browser console and use these commands:
+### Steps
 
-### `window.showAllRounds()`
-Display all tracked rounds in a table format:
+1. **Install Tampermonkey**
+   - Chrome: [Chrome Web Store](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo)
+   - Firefox: [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/tampermonkey/)
+   - Edge: [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/tampermonkey/iikmkjmpaadaobahmlepeloendndfphd)
+
+2. **Install the Script**
+   - Open Tampermonkey Dashboard
+   - Click "Create a new script"
+   - Copy and paste the entire script
+   - Save (Ctrl+S or Cmd+S)
+
+3. **Navigate to Claude.ai**
+   - Go to [claude.ai](https://claude.ai)
+   - The tracker will initialize automatically
+
+## 💻 Usage
+
+### Basic Usage
+
+Once installed, the tracker runs automatically. Open the browser console (F12) to see:
+
+- **Round summaries** after each conversation turn
+- **Global statistics** across all conversations
+- **Model information** and thinking detection
+
+### Console Commands
+
+Access these functions from the browser console:
+
 ```javascript
+// Display all conversation rounds
 window.showAllRounds()
-```
 
-### `window.exportJSON()`
-Export all tracking data as JSON (automatically copies to clipboard):
-```javascript
+// Show model-specific statistics
+window.showModelStats()
+
+// Export data to clipboard as JSON
 window.exportJSON()
-```
 
-### `window.getTrackerURL()`
-Generate a blob URL to view the full JSON data:
-```javascript
-const url = window.getTrackerURL()
-// Open the URL in a new tab to view the data
-```
+// Generate blob URL for data
+window.getTrackerURL()
 
-### `window.resetTracker()`
-Reset all tracking data (with confirmation prompt):
-```javascript
+// Reset all tracking data
 window.resetTracker()
+
+// Enable enhanced debug mode
+window.enableDebug()
+
+// Disable debug mode
+window.disableDebug()
+
+// Download debug log as file
+window.saveDebugLog()
+
+// Show debug summary
+window.getDebugSummary()
 ```
 
-### `window.claudeTracker`
-Access the raw tracker object:
+### Example Output
+
+```
+═══════════════════════════════════════════════════════
+✅ ROUND #1 COMPLETED @ 13:21:23
+🤖 MODEL: Sonnet 4.5
+🧠 THINKING: ✓ YES
+═══════════════════════════════════════════════════════
+
+📥 USER INPUT:
+   User message: 125 chars (~48 tokens)
+   Documents: 0 chars (~0 tokens)
+   ─────────────────────────────
+   USER SUBTOTAL: 125 chars (~48 tokens)
+
+🤖 CLAUDE OUTPUT:
+   Thinking: 1,234 chars (~475 tokens)
+   Assistant: 2,456 chars (~945 tokens)
+   Tool Content: 0 chars (~0 tokens)
+   ─────────────────────────────
+   CLAUDE SUBTOTAL: 3,690 chars (~1,420 tokens)
+
+═══════════════════════════════════════════════════════
+📊 ROUND TOTAL: 3,815 chars (~1,468 tokens)
+═══════════════════════════════════════════════════════
+```
+
+## ⚙️ Configuration
+
+### User Settings
+
+Edit these settings at the top of the script:
+
 ```javascript
-// View current statistics
-console.log(window.claudeTracker.global)
-
-// View last round
-console.log(window.claudeTracker.last)
-
-// View all rounds
-console.log(window.claudeTracker.rounds)
+const SETTINGS = {
+  // Debug mode on startup
+  DEBUG_MODE_ON_START: false,
+  
+  // Hide Claude.ai console spam
+  HIDE_CLAUDE_CONSOLE_SPAM: true,
+  
+  // Central token estimation (default for all)
+  CHARS_PER_TOKEN: 2.6,
+  
+  // Fine-tuned estimation per content type
+  TOKEN_ESTIMATION: {
+    userMessage: null,      // null = use central
+    userDocuments: null,
+    thinking: null,
+    assistant: null,
+    toolContent: null,      // e.g., 2.2 for code-heavy content
+  },
+  
+  // Large document warning threshold
+  LARGE_DOCUMENT_THRESHOLD: 100000,
+  
+  // Clear texts after saving (memory optimization)
+  CLEAR_TEXTS_AFTER_SAVE: true,
+  
+  // Delay before saving round
+  SAVE_DELAY_MS: 500,
+};
 ```
 
-## Token Estimation
+### Console Spam Filtering
 
-The tracker uses a character-to-token ratio of **2.6 characters per token**, which provides approximately **3-5% accuracy** compared to Claude's actual token counting.
+The tracker filters out Claude.ai's debug messages by default. To customize:
 
-### Why estimation?
+```javascript
+CONSOLE_SPAM_PATTERNS: [
+  'IsolatedSegment',
+  'NOTIFICATION API DEBUG',
+  'Violation',
+  // Add your own patterns here
+],
+```
 
-- Real-time tracking without API calls
-- No API key required
-- Zero latency
-- Works offline
+## 📈 Data Structure
 
-### Accuracy considerations
-
-Token estimation is affected by:
-- Language (non-English text may have different ratios)
-- Special characters and Unicode
-- Code vs natural language
-- Formatting and whitespace
-
-For production use cases requiring exact token counts, consider integrating with Anthropic's Token Counting API.
-
-## Data Structure
-
-The tracker stores data in the following structure:
+### Round Object
 
 ```javascript
 {
-  global: {
-    totalChars: 15420,
-    totalTokens: 5931,
-    totalUserChars: 1250,
-    totalUserTokens: 481,
-    totalDocChars: 8500,
-    totalDocTokens: 3269,
-    totalThinkingChars: 2100,
-    totalThinkingTokens: 808,
-    totalAssistantChars: 3570,
-    totalAssistantTokens: 1373,
-    roundCount: 5
-  },
-  rounds: [
-    {
-      roundNumber: 1,
-      timestamp: "14:32:15",
-      user: { chars: 156, tokens: 60 },
-      documents: { chars: 5267, tokens: 2026, count: 1 },
-      thinking: { chars: 842, tokens: 324 },
-      assistant: { chars: 1234, tokens: 475 },
-      total: { chars: 7499, tokens: 2885 }
-    }
-    // ... more rounds
-  ],
-  last: { /* last round data */ }
+  roundNumber: 1,
+  timestamp: "13:21:23",
+  model: "Sonnet 4.5",
+  hasThinking: true,
+  user: { chars: 125, tokens: 48 },
+  documents: { chars: 0, tokens: 0, count: 0 },
+  thinking: { chars: 1234, tokens: 475 },
+  assistant: { chars: 2456, tokens: 945 },
+  toolContent: { chars: 0, tokens: 0 },
+  total: { chars: 3815, tokens: 1468 }
 }
 ```
 
-## Context Window Limits
+### Global Statistics
 
-Claude models have different context window sizes:
+```javascript
+{
+  roundCount: 5,
+  totalChars: 15420,
+  totalTokens: 5931,
+  totalUserChars: 625,
+  totalUserTokens: 240,
+  totalThinkingChars: 6170,
+  totalThinkingTokens: 2373,
+  // ... more statistics
+  modelStats: {
+    "Sonnet 4.5": { /* model-specific stats */ }
+  }
+}
+```
 
-| Model | Context Window |
-|-------|----------------|
-| Claude Sonnet 4.5 | 200,000 tokens |
-| Claude Sonnet 4 | 200,000 tokens |
-| Claude Opus 4 | 200,000 tokens |
-| Claude Haiku 3.5 | 200,000 tokens |
+## 🎓 Advanced Features
 
-Use this tracker to stay aware of your usage and avoid hitting limits!
+### Measuring Your Own Token Ratios
 
-## How It Works
+For maximum accuracy, measure your actual token ratios:
 
-The tracker intercepts network requests to Claude.ai's completion endpoint and monitors:
+1. Send conversations directly to Claude API
+2. Compare API token counts with character counts
+3. Calculate: `chars / tokens = your ratio`
+4. Update `TOKEN_ESTIMATION` values
 
-1. **User Input** - Text you type and send
-2. **Documents** - Files you attach (extracted content)
-3. **Thinking** - Claude's internal reasoning (when thinking mode is enabled)
-4. **Assistant Response** - Claude's actual response text
+Example:
+```javascript
+TOKEN_ESTIMATION: {
+  userMessage: 2.6,    // Natural language
+  thinking: 2.4,       // Technical/code-heavy
+  toolContent: 2.2,    // Pure code artifacts
+}
+```
 
-All data is captured in real-time from the Server-Sent Events (SSE) stream that Claude uses to stream responses.
+### Debug Mode
 
-## Privacy & Security
+Enable detailed logging:
 
-- ✅ **Everything runs locally** in your browser
-- ✅ **No data is sent anywhere**
-- ✅ **No external API calls** (unless you add token counting integration)
-- ✅ **Only statistics are stored**, not full conversation text
-- ✅ **Open source** - audit the code yourself
+```javascript
+window.enableDebug()
+```
 
-## Limitations
+This logs:
+- All fetch URLs
+- Request/response bodies
+- SSE events
+- Token calculations
 
-- Estimation only (~3-5% accuracy)
-- Does not account for system prompts or tool definitions
-- Requires manual installation per browser tab
-- Resets on page refresh (unless using Snippets)
-- Only works on Claude.ai web interface
+Save debug log to file:
+```javascript
+window.saveDebugLog()
+```
 
-## Troubleshooting
+### Chrome Extension (Future)
 
-### Tracker not working?
+The current Tampermonkey version is a prototype. A Chrome extension is planned with:
+- API-based accurate token counting
+- Multi-tab tracking
+- Auto-tuned estimation
+- Visual dashboard
 
-1. Make sure you're on `claude.ai` (not api.anthropic.com)
-2. Check that the script ran without errors in the console
-3. Try refreshing the page and re-running the script
-4. Ensure you have a conversation open
+## 🐛 Troubleshooting
 
-### Not seeing round summaries?
+### Model Shows "unknown"
 
-The tracker only outputs statistics after Claude completes a response. Send a message and wait for the response to complete.
+**Issue**: Model name not detected
 
-### Numbers seem off?
+**Solution**: 
+- Refresh the page
+- Ensure the model selector is visible
+- Check if Claude.ai changed their DOM structure
 
-Remember, this is an estimation. For exact counts, consider using Anthropic's Token Counting API with your API key.
+### Console Still Shows Spam
 
-## Contributing
+**Issue**: Some messages not filtered
 
-Contributions are welcome! Feel free to:
+**Solution**:
+- Add patterns to `CONSOLE_SPAM_PATTERNS`
+- Use Chrome DevTools filter: `-IsolatedSegment -Violation`
+- First page load may have unfiltered messages (unavoidable)
 
-- Report bugs
-- Suggest features
-- Submit pull requests
-- Improve documentation
+### Token Counts Seem Off
 
-## License
+**Issue**: Estimation doesn't match expected values
 
-MIT License - feel free to use, modify, and distribute as needed.
+**Solution**:
+- Adjust `CHARS_PER_TOKEN` setting
+- Fine-tune `TOKEN_ESTIMATION` per content type
+- Measure your actual ratios (see Advanced Features)
 
-## Acknowledgments
+### Script Not Running
 
-Built for the Claude.ai community to help manage context windows effectively.
+**Issue**: Tracker doesn't initialize
+
+**Solution**:
+- Check Tampermonkey is enabled
+- Verify script is enabled in Tampermonkey
+- Check browser console for errors
+- Ensure you're on claude.ai domain
+
+## 📝 Notes
+
+- **Accuracy**: Character-based estimation is ~3-5% accurate
+- **API Tokens**: Claude.ai doesn't expose token counts via UI
+- **Chrome Extension**: For exact API token counts, a future Chrome extension is planned
+- **Privacy**: All tracking is local, no data sent anywhere
+- **Performance**: Minimal impact, memory optimized
+
+## 🤝 Contributing
+
+Feedback and contributions welcome! If you find bugs or have feature requests, please share.
+
+## 📜 License
+
+Free to use and modify for personal use.
+
+## ⚠️ Disclaimer
+
+This is an unofficial tool. Token estimates are approximate. For exact billing, refer to Anthropic's official API usage dashboard.
 
 ---
 
-**Happy tracking! 📊**
+**Version**: 1.3  
+**Last Updated**: 2025-10-13  
+**Compatibility**: Claude.ai web interface
+
+🎯 Happy tracking!
