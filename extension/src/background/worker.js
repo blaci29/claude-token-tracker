@@ -28,15 +28,14 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
 // Message handler
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('Message received:', message.type, 'from tab:', sender.tab?.id);
+  console.log('📨', message.type);
   
   handleMessage(message, sender)
     .then(response => {
-      console.log('Sending response for', message.type, ':', response);
       sendResponse({ success: true, data: response });
     })
     .catch(error => {
-      console.error('Error handling message:', error);
+      console.error('❌ Error handling message:', error);
       sendResponse({ success: false, error: error.message });
     });
   
@@ -193,7 +192,7 @@ async function handleRoundCompleted(data) {
   
   await TimerManager.addRoundToTimers(chatId, estimatedRound.roundNumber, totalTokens);
   
-  console.log(`Round #${estimatedRound.roundNumber} saved to chat ${chatId}`);
+  console.log(`✅ Round #${estimatedRound.roundNumber} saved (${totalTokens} tokens)`);
   
   if (settings.overlayEnabled) {
     try {

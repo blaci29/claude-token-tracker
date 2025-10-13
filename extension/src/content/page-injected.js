@@ -1,25 +1,111 @@
 /**
  * INJECTED SCRIPT - Runs in page context (not content script isolated world)
- * This script intercepts fetch calls at the page level
+ * This script intercepts fetch calls at the page level AND filters console spam
  */
 
 (function() {
   'use strict';
   
-  console.log('🔧 Page interceptor starting...');
+  // === CONSOLE SPAM FILTER ===
+  const CONSOLE_SPAM_PATTERNS = [
+    'IsolatedSegment',
+    'NOTIFICATION API DEBUG',
+    'Violation',
+    'Preferences fetched',
+    'Intercom',
+    'handler took',
+    'Forced reflow',
+    'honeycombio',
+    'opentelemetry',
+    'statsig',
+    'Analytics loaded',
+    'Message received',
+    'sendMessage called',
+    'Launcher is disabled',
+    'iframe_ready',
+    'segment_initialized',
+    'Processing message',
+    'Identify completed',
+    'requestAnimationFrame',
+    'setTimeout',
+    'deterministic sampler',
+    'Loading chat data for',
+    'Got response:',
+    'Error loading chat data',
+    'Error details:',
+    'formatLargeNumber'
+  ];
   
+  // Save original console methods
+  const _originalConsoleLog = console.log;
+  const _originalConsoleWarn = console.warn;
+  const _originalConsoleError = console.error;
+  const _originalConsoleInfo = console.info;
+  const _originalConsoleDebug = console.debug;
+  
+  // Helper function to check if message should be filtered
+  function shouldFilter(args) {
+    // Convert all arguments to strings
+    const message = args.map(arg => {
+      if (typeof arg === 'string') return arg;
+      if (typeof arg === 'object') {
+        try {
+          return JSON.stringify(arg);
+        } catch(e) {
+          return String(arg);
+        }
+      }
+      return String(arg);
+    }).join(' ');
+    
+    // Check against all spam patterns
+    return CONSOLE_SPAM_PATTERNS.some(pattern => 
+      message.toLowerCase().includes(pattern.toLowerCase())
+    );
+  }
+  
+  // Override console methods with filtering
+  console.log = function(...args) {
+    if (!shouldFilter(args)) {
+      _originalConsoleLog.apply(console, args);
+    }
+  };
+  
+  console.warn = function(...args) {
+    if (!shouldFilter(args)) {
+      _originalConsoleWarn.apply(console, args);
+    }
+  };
+  
+  console.error = function(...args) {
+    if (!shouldFilter(args)) {
+      _originalConsoleError.apply(console, args);
+    }
+  };
+  
+  console.info = function(...args) {
+    if (!shouldFilter(args)) {
+      _originalConsoleInfo.apply(console, args);
+    }
+  };
+  
+  console.debug = function(...args) {
+    if (!shouldFilter(args)) {
+      _originalConsoleDebug.apply(console, args);
+    }
+  };
+  
+  
+  // === FETCH INTERCEPTOR ===
   const _originalFetch = window.fetch;
   
   window.fetch = async function(url, options = {}) {
     const urlString = typeof url === 'string' ? url : (url ? url.toString() : 'unknown');
     
-    console.log('🌐 [PAGE] Fetch:', urlString);
-    
     // Check if this is a completion request
     const isCompletion = urlString.includes('/completion');
     
     if (isCompletion) {
-      console.log('🟢 COMPLETION REQUEST DETECTED!', urlString);
       
       // Try to extract prompt from request body
       let promptText = '';
@@ -84,8 +170,6 @@
       const contentType = response.headers.get('content-type') || '';
       
       if (contentType.includes('text/event-stream')) {
-        console.log('🟢 COMPLETION RESPONSE IS SSE STREAM');
-        
         // Clone response to read stream without consuming it
         const clonedResponse = response.clone();
         processSSEStream(clonedResponse.body);
@@ -132,5 +216,5 @@
     }
   }
   
-  console.log('✅ Fetch interceptor active in page context');
+  console.log('✅ Claude Token Tracker active');
 })();

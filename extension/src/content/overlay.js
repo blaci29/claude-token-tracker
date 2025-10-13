@@ -227,34 +227,26 @@ const OverlayManager = {
     
     try {
       if (!chatId) {
-        console.log('No chatId provided, showing empty state');
-        this.renderEmpty();
         return;
       }
       
       this.isLoading = true;
-      console.log('Loading chat data for:', chatId);
       
       const response = await chrome.runtime.sendMessage({
         type: CONSTANTS.MSG_TYPES.GET_CHAT_DATA,
         data: { chatId }
       });
       
-      console.log('Got response:', response);
-      
       if (response && response.success && response.data) {
         this.renderData(response.data);
       } else if (response && response.success && response.data === null) {
         // No chat data yet - this is normal for new chats
-        console.log('No chat data found for chatId:', chatId);
         this.renderEmpty();
       } else {
-        console.log('Unexpected response format:', response);
         this.renderEmpty();
       }
     } catch (error) {
-      console.error('Error loading chat data:', error);
-      console.error('Error details:', error.message, error.stack);
+      // Silently fail - overlay errors shouldn't spam console
       this.renderError();
     } finally {
       this.isLoading = false;

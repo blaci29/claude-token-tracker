@@ -12,12 +12,8 @@ const Interceptor = {
    * Initialize interceptor
    */
   init() {
-    console.log('Interceptor initializing...');
-    
     // Inject into page context (not content script isolated world)
     this.injectPageScript();
-    
-    console.log('Interceptor ready');
   },
   
   /**
@@ -37,7 +33,6 @@ const Interceptor = {
       if (event.source !== window) return;
       
       if (event.data.type === 'CLAUDE_TRACKER_COMPLETION_REQUEST') {
-        console.log('📨 Completion request from page:', event.data);
         this.handleCompletionRequest(event.data);
       }
       
@@ -84,13 +79,10 @@ const Interceptor = {
       }
     }
   },
-  
   /**
    * Handle completion request
    */
   handleCompletionRequest(data) {
-    console.log('Starting new round from completion request');
-    
     // Get current chat info
     const chatInfo = Utils.extractChatInfo(window.location.href);
     
@@ -130,8 +122,6 @@ const Interceptor = {
         }
       }
     };
-    
-    console.log('Round started:', this.currentRound);
   },
   
   
@@ -146,8 +136,6 @@ const Interceptor = {
     this.currentRound.round.assistant.chars = this.currentRound.round.assistant.text.length;
     this.currentRound.round.toolContent.chars = this.currentRound.round.toolContent.text.length;
     
-    console.log('Sending round to worker:', this.currentRound);
-    
     // Send to service worker
     try {
       const response = await chrome.runtime.sendMessage({
@@ -156,7 +144,7 @@ const Interceptor = {
       });
       
       if (response.success) {
-        console.log('✅ Round saved successfully');
+        console.log('✅ Round saved');
       } else {
         console.error('❌ Error saving round:', response.error);
       }
