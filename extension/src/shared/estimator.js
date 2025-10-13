@@ -1,6 +1,7 @@
 /**
  * CLAUDE TOKEN TRACKER - TOKEN ESTIMATOR
  * Token estimation with central + type-specific ratios
+ * NO imports/exports - pure global object
  */
 
 const TokenEstimator = {
@@ -9,10 +10,8 @@ const TokenEstimator = {
    * Get token estimation rate for a specific content type
    */
   getRate(type, settings) {
-    const CONST = (typeof CONSTANTS !== 'undefined') ? CONSTANTS : (typeof window !== 'undefined' ? window.CONSTANTS : self.CONSTANTS);
-    
     if (!settings || !settings.tokenEstimation) {
-      return CONST.DEFAULTS.tokenEstimation.central;
+      return CONSTANTS.DEFAULTS.tokenEstimation.central;
     }
     
     const override = settings.tokenEstimation.overrides[type];
@@ -28,11 +27,9 @@ const TokenEstimator = {
    * Estimate tokens from character count
    */
   estimate(chars, type = 'userMessage', settings = null) {
-    const CONST = (typeof CONSTANTS !== 'undefined') ? CONSTANTS : (typeof window !== 'undefined' ? window.CONSTANTS : self.CONSTANTS);
-    
     let charCount = typeof chars === 'string' ? chars.length : chars;
     
-    const rate = this.getRate(type, settings || { tokenEstimation: CONST.DEFAULTS.tokenEstimation });
+    const rate = this.getRate(type, settings || { tokenEstimation: CONSTANTS.DEFAULTS.tokenEstimation });
     
     return Math.ceil(charCount / rate);
   },
@@ -83,27 +80,12 @@ const TokenEstimator = {
    * Get current settings from storage
    */
   async getSettings() {
-    const CONST = (typeof CONSTANTS !== 'undefined') ? CONSTANTS : (typeof window !== 'undefined' ? window.CONSTANTS : self.CONSTANTS);
-    
     try {
-      const result = await chrome.storage.local.get(CONST.STORAGE_KEYS.SETTINGS);
-      return result[CONST.STORAGE_KEYS.SETTINGS] || CONST.DEFAULTS;
+      const result = await chrome.storage.local.get(CONSTANTS.STORAGE_KEYS.SETTINGS);
+      return result[CONSTANTS.STORAGE_KEYS.SETTINGS] || CONSTANTS.DEFAULTS;
     } catch (error) {
       console.error('Error getting settings:', error);
-      return CONST.DEFAULTS;
+      return CONSTANTS.DEFAULTS;
     }
   }
 };
-
-// Make available globally
-if (typeof window !== 'undefined') {
-  window.TokenEstimator = TokenEstimator;
-}
-
-if (typeof self !== 'undefined' && self !== window) {
-  self.TokenEstimator = TokenEstimator;
-}
-
-if (typeof exports !== 'undefined') {
-  exports.TokenEstimator = TokenEstimator;
-}

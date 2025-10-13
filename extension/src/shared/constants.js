@@ -1,6 +1,7 @@
 /**
  * CLAUDE TOKEN TRACKER - CONSTANTS
  * Central configuration for the extension
+ * NO imports/exports - pure global object
  */
 
 const CONSTANTS = {
@@ -43,7 +44,7 @@ const CONSTANTS = {
     weekStartTime: '00:00'
   },
   
-  // SPAM PATTERNS
+  // CONSOLE SPAM PATTERNS
   SPAM_PATTERNS: [
     'IsolatedSegment',
     'NOTIFICATION API DEBUG',
@@ -76,7 +77,7 @@ const CONSTANTS = {
     PREFERENCES: '/chat_preferences'
   },
   
-  // IMPORTANT ENDPOINTS
+  // IMPORTANT ENDPOINTS FOR DEBUG
   IMPORTANT_ENDPOINTS: [
     '/completion',
     '/chat',
@@ -140,21 +141,6 @@ const CONSTANTS = {
   LARGE_DOCUMENT_THRESHOLD: 100000,
   SAVE_DELAY_MS: 500,
   
-  // DAYS
+  // DAYS OF WEEK
   DAYS: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 };
-
-// Make available globally (for content scripts and other non-module contexts)
-if (typeof window !== 'undefined') {
-  window.CONSTANTS = CONSTANTS;
-}
-
-// Make available in worker/service worker context
-if (typeof self !== 'undefined' && self !== window) {
-  self.CONSTANTS = CONSTANTS;
-}
-
-// Export for ES6 modules (for service worker with type="module")
-if (typeof exports !== 'undefined') {
-  exports.CONSTANTS = CONSTANTS;
-}
