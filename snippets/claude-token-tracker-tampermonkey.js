@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Claude Token Tracker
 // @namespace    http://tampermonkey.net/
-// @version      1.0
-// @description  Real-time token usage tracking for Claude.ai conversations
+// @version      1.1
+// @description  Real-time token usage tracking for Claude.ai conversations with enhanced debug
 // @author       You
 // @match        https://claude.ai/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=claude.ai
@@ -32,7 +32,15 @@ const SETTINGS = {
   CLEAR_TEXTS_AFTER_SAVE: true,
   
   // Késleltetés a round mentése előtt (ms)
-  SAVE_DELAY_MS: 500
+  SAVE_DELAY_MS: 500,
+  
+  // Debug: Fontos endpointok (részletes logging)
+  IMPORTANT_ENDPOINTS: [
+    '/completion',
+    '/chat',
+    '/model',
+    '/chat_preferences'
+  ]
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -46,6 +54,7 @@ console.log('');
 
 // === DEBUG MODE ===
 let debugMode = SETTINGS.DEBUG_MODE_ON_START;
+let debugLog = []; // Store all debug entries
 
 // === TRACKER STATE ===
 window.claudeTracker = {
@@ -87,6 +96,21 @@ function estimateTokens(chars) {
     chars = chars.length;
   }
   return Math.ceil(chars / SETTINGS.CHARS_PER_TOKEN);
+}
+
+// === CHECK IF ENDPOINT IS IMPORTANT ===
+function isImportantEndpoint(url) {
+  return SETTINGS.IMPORTANT_ENDPOINTS.some(endpoint => url.includes(endpoint));
+}
+
+// === ADD DEBUG LOG ENTRY ===
+function addDebugLog(type, data) {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    type: type,
+    data: data
+  };
+  debugLog.push(entry);
 }
 
 // === DOM-BASED MODEL DETECTION ===
@@ -157,11 +181,13 @@ window.enableDebug = function() {
   console.log('🐛 ENHANCED DEBUG MODE ENABLED');
   console.log('═══════════════════════════════════════════════════════');
   console.log('   📡 All fetch URLs will be logged');
-  console.log('   📦 Response bodies will be inspected');
+  console.log('   📦 Important endpoint responses will be inspected');
   console.log('   🔍 Automatic search for: token, usage, model, size, count');
   console.log('   📝 SSE events will be logged');
   console.log('');
   console.log('   Use window.disableDebug() to turn off');
+  console.log('   Use window.saveDebugLog() to download debug log');
+  console.log('   Use window.getDebugSummary() to see summary');
   console.log('═══════════════════════════════════════════════════════');
   console.log('');
 };
@@ -170,6 +196,91 @@ window.disableDebug = function() {
   debugMode = false;
   console.log('');
   console.log('🔇 DEBUG MODE DISABLED');
+  console.log('');
+};
+
+// === SAVE DEBUG LOG TO FILE ===
+window.saveDebugLog = function() {
+  const timestamp = new Date().toISOString().replace(/:/g, '-').split('.')[0];
+  const filename = `claude-tracker-debug-${timestamp}.txt`;
+  
+  let logText = '═══════════════════════════════════════════════════════\n';
+  logText += 'CLAUDE TOKEN TRACKER - DEBUG LOG\n';
+  logText += `Generated: ${new Date().toLocaleString()}\n`;
+  logText += `Total entries: ${debugLog.length}\n`;
+  logText += '═══════════════════════════════════════════════════════\n\n';
+  
+  debugLog.forEach((entry, index) => {
+    logText += `\n[${index + 1}] ${entry.timestamp} - ${entry.type}\n`;
+    logText += '─────────────────────────────────────────────────────\n';
+    logText += JSON.stringify(entry.data, null, 2) + '\n';
+  });
+  
+  const blob = new Blob([logText], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+  
+  console.log('');
+  console.log('✅ DEBUG LOG SAVED!');
+  console.log(`📁 Filename: ${filename}`);
+  console.log(`📊 Total entries: ${debugLog.length}`);
+  console.log('');
+};
+
+// === GET DEBUG SUMMARY ===
+window.getDebugSummary = function() {
+  console.log('');
+  console.log('═══════════════════════════════════════════════════════');
+  console.log('📊 DEBUG SUMMARY');
+  console.log('═══════════════════════════════════════════════════════');
+  console.log('');
+  
+  // Count by type
+  const typeCounts = {};
+  debugLog.forEach(entry => {
+    typeCounts[entry.type] = (typeCounts[entry.type] || 0) + 1;
+  });
+  
+  console.log('📈 Entries by type:');
+  console.table(typeCounts);
+  console.log('');
+  
+  // Find all interesting fields
+  const allInterestingFields = {};
+  debugLog.forEach(entry => {
+    if (entry.data.interestingFields) {
+      entry.data.interestingFields.forEach(field => {
+        const key = `${field.path}`;
+        if (!allInterestingFields[key]) {
+          allInterestingFields[key] = {
+            path: field.path,
+            key: field.key,
+            type: field.type,
+            exampleValue: field.value,
+            count: 0
+          };
+        }
+        allInterestingFields[key].count++;
+      });
+    }
+  });
+  
+  if (Object.keys(allInterestingFields).length > 0) {
+    console.log('🔍 All interesting fields found:');
+    console.table(Object.values(allInterestingFields));
+  } else {
+    console.log('ℹ️ No interesting fields found yet');
+  }
+  
+  console.log('');
+  console.log(`Total debug entries: ${debugLog.length}`);
+  console.log('');
+  console.log('💡 TIP: Use window.saveDebugLog() to download full log');
+  console.log('═══════════════════════════════════════════════════════');
   console.log('');
 };
 
@@ -527,14 +638,26 @@ const _originalFetch = window.fetch;
 
 window.fetch = async function(url, options = {}) {
   
-  // === ENHANCED DEBUG: Log ALL fetch URLs ===
+  const isImportant = isImportantEndpoint(url);
+  
+  // === LOG FETCH URL (always in debug mode) ===
   if (debugMode) {
-    console.log('');
-    console.log('🐛 ═══════════════════════════════════════════════════');
-    console.log(`🐛 📡 FETCH URL: ${url}`);
-    if (options.method) {
-      console.log(`🐛 📤 METHOD: ${options.method}`);
+    if (isImportant) {
+      console.log('');
+      console.log('🐛 ═══════════════════════════════════════════════════');
+      console.log(`🐛 📡 IMPORTANT ENDPOINT: ${url}`);
+      if (options.method) {
+        console.log(`🐛 📤 METHOD: ${options.method}`);
+      }
+    } else {
+      console.log(`🐛 📡 ${url}`);
     }
+    
+    addDebugLog('FETCH_REQUEST', {
+      url: url,
+      method: options.method || 'GET',
+      important: isImportant
+    });
   }
   
   // === INTERCEPT COMPLETION REQUESTS ===
@@ -576,6 +699,13 @@ window.fetch = async function(url, options = {}) {
             console.log('🐛 🔍 INTERESTING FIELDS IN REQUEST:');
             console.table(interestingFields);
           }
+          
+          addDebugLog('COMPLETION_REQUEST', {
+            model: modelName,
+            promptLength: promptText.length,
+            bodyKeys: Object.keys(body),
+            interestingFields: interestingFields
+          });
         }
         
         // === CHECK FOR DOCUMENTS ===
@@ -623,6 +753,10 @@ window.fetch = async function(url, options = {}) {
         console.error('❌ Error parsing request body:', e);
         if (debugMode) {
           console.error('🐛 Full error:', e);
+          addDebugLog('ERROR', {
+            context: 'parsing request body',
+            error: e.message
+          });
         }
       }
     }
@@ -631,8 +765,8 @@ window.fetch = async function(url, options = {}) {
   // === CALL ORIGINAL FETCH ===
   const response = await _originalFetch(url, options);
   
-  // === ENHANCED DEBUG: Response inspection ===
-  if (debugMode) {
+  // === ENHANCED DEBUG: Response inspection (only for important endpoints) ===
+  if (debugMode && isImportant) {
     console.log(`🐛 📥 RESPONSE STATUS: ${response.status} ${response.statusText}`);
     console.log(`🐛 📥 RESPONSE TYPE: ${response.type}`);
     
@@ -651,6 +785,12 @@ window.fetch = async function(url, options = {}) {
         if (interestingFields.length > 0) {
           console.log('🐛 🔍 INTERESTING FIELDS IN RESPONSE:');
           console.table(interestingFields);
+          
+          addDebugLog('RESPONSE_INTERESTING', {
+            url: url,
+            status: response.status,
+            interestingFields: interestingFields
+          });
         } else {
           console.log('🐛 ℹ️ No interesting fields found in response');
         }
@@ -703,7 +843,6 @@ async function processSSEStream(stream) {
             // === DEBUG: Log ALL events ===
             if (debugMode) {
               console.log('🐛 SSE Event:', data.type);
-              console.log('   Full data:', data);
               
               if (data.type === 'content_block_start') {
                 console.log('   📦 Content block type:', data.content_block?.type);
@@ -727,6 +866,11 @@ async function processSSEStream(stream) {
               if (interestingFields.length > 0) {
                 console.log('   🔍 Interesting fields in event:');
                 console.table(interestingFields);
+                
+                addDebugLog('SSE_EVENT_INTERESTING', {
+                  eventType: data.type,
+                  interestingFields: interestingFields
+                });
               }
               
               console.log('');
@@ -803,7 +947,8 @@ console.log('📌 Features:');
 console.log('   - Automatic token tracking for every conversation round');
 console.log('   - Model tracking & thinking detection');
 console.log('   - DOM-based model detection');
-console.log('   - Enhanced debug mode (all fetch URLs + response inspection)');
+console.log('   - Enhanced debug mode with endpoint filtering');
+console.log('   - Debug log export to file');
 console.log('   - Document support (txt, pdf, etc.)');
 console.log('   - Thinking + Assistant text counting');
 console.log('   - Tool content tracking (files, artifacts)');
@@ -824,6 +969,8 @@ console.log('   window.getTrackerURL()   - Generate blob URL for data');
 console.log('   window.resetTracker()    - Reset all tracking data');
 console.log('   window.enableDebug()     - Enable ENHANCED debug mode');
 console.log('   window.disableDebug()    - Disable debug mode');
+console.log('   window.saveDebugLog()    - Download debug log as file');
+console.log('   window.getDebugSummary() - Show debug summary in console');
 console.log('');
 console.log('💬 Start chatting with Claude to track token usage!');
 console.log('');
