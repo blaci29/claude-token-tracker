@@ -1,196 +1,435 @@
-# Claude Token Tracker
+# 🎯 Claude Token Tracker
 
-Real-time token usage tracking for Claude.ai conversations with advanced features and configurable estimation.
+**Track your Claude.ai token usage in real-time. Know exactly how much you're using.**
 
-## 🎯 Overview
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-1.3-green.svg)]()
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)]()
 
-Claude Token Tracker is a Tampermonkey userscript that monitors and tracks token usage in your Claude.ai conversations. It provides detailed statistics, model detection, thinking process tracking, and exports your data for analysis.
+> 💡 **Why?** Claude.ai doesn't show token counts. This tracker estimates your usage based on characters, helping you monitor costs and optimize prompts.
 
-**Why use this?** Claude.ai doesn't show token counts in the interface. This tracker estimates token usage based on character counts, helping you:
-- Monitor conversation costs
-- Track context window usage
-- Analyze model performance
-- Optimize your prompts
+---
 
-## ✨ Features
+## 🚀 Quick Start (60 seconds)
 
-- ✅ **Automatic Token Tracking** - Tracks every conversation round
-- ✅ **Model Detection** - Identifies which Claude model you're using (Sonnet, Opus, Haiku)
-- ✅ **Thinking Detection** - Tracks extended thinking tokens separately
-- ✅ **Document Support** - Handles attached files (PDF, TXT, etc.)
-- ✅ **Configurable Estimation** - Fine-tune token estimation per content type
-- ✅ **Console Spam Filter** - Clean console by filtering Claude.ai's debug messages
-- ✅ **Debug Mode** - Detailed logging and export capabilities
-- ✅ **Model Statistics** - Per-model analytics and comparisons
-- ✅ **Memory Optimized** - Clears text content after processing
-- ✅ **Export Data** - JSON export and clipboard copy
+1. **Install [Tampermonkey](https://www.tampermonkey.net/)** (browser extension)
+2. **[Click here to install the script](https://github.com/blaci29/claude-token-tracker/raw/main/snippets/claude-token-tracker-tampermonkey.js)** *(or copy-paste manually)*
+3. **Go to [Claude.ai](https://claude.ai)** and start chatting!
+4. **Open browser console** (press `F12`) to see your token usage
 
-## 📊 Token Estimation
+That's it! Every message now shows detailed token statistics. 📊
 
-The tracker uses character-based token estimation:
+---
 
-- **Default**: 2.6 chars/token (~3-5% accuracy)
-- **Configurable** per content type:
-  - User messages
-  - Documents
-  - Thinking
-  - Assistant responses
-  - Tool content (artifacts, code)
+## ✨ What You Get
 
-### Fine-Tuning Guide
+### Real-Time Tracking
+- 📤 **User Input**: Your messages + attached documents
+- 🤖 **Claude Output**: Responses + thinking + code/artifacts
+- 📊 **Per-Round Summary**: After every message
+- 🌍 **Global Statistics**: Total usage across conversation
 
-Different content types have different token densities:
+### Smart Features
+- 🎭 **Model Detection**: Knows if you're using Sonnet, Opus, or Haiku
+- 🧠 **Thinking Tracking**: Separate stats for extended thinking
+- 📎 **Document Support**: Tracks uploaded PDFs, text files, etc.
+- 🔧 **Configurable**: Fine-tune estimation for your use case
+- 🧹 **Clean Console**: Filters out Claude.ai's debug spam
 
-1. **Code** (dense): 2.0-2.4 chars/token
-   - Contains symbols, brackets, operators
-2. **Natural Text** (normal): 2.6 chars/token
-   - Regular conversation, explanations
-3. **Documents** (sparse): 2.8-3.0 chars/token
-   - PDFs, formatted text files
+### Example Output (in console)
 
-## 🚀 Installation
+```
+✅ ROUND #1 COMPLETED @ 13:21:23
+🤖 MODEL: Sonnet 4.5
+🧠 THINKING: ✓ YES
 
-### Prerequisites
+📥 USER INPUT: 125 chars (~48 tokens)
+🤖 CLAUDE OUTPUT: 3,690 chars (~1,420 tokens)
+📊 ROUND TOTAL: ~1,468 tokens
 
-- [Tampermonkey](https://www.tampermonkey.net/) browser extension
-- Supported browsers: Chrome, Firefox, Edge, Safari
+🌍 GLOBAL TOTAL: ~1,468 tokens (1 round)
+```
 
-### Steps
+---
 
-1. **Install Tampermonkey**
-   - Chrome: [Chrome Web Store](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo)
-   - Firefox: [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/tampermonkey/)
-   - Edge: [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/tampermonkey/iikmkjmpaadaobahmlepeloendndfphd)
+## 💙 Support This Project
 
-2. **Install the Script**
-   - Open Tampermonkey Dashboard
-   - Click "Create a new script"
-   - Copy and paste the entire script
-   - Save (Ctrl+S or Cmd+S)
+**Claude Token Tracker is 100% free and always will be.** No ads, no paywalls, no data collection.
 
-3. **Navigate to Claude.ai**
-   - Go to [claude.ai](https://claude.ai)
-   - The tracker will initialize automatically
+If this saves you time or helps track your costs, consider buying me a coffee! ☕
 
-## 💻 Usage
+Your support means:
+- ⚡ Faster bug fixes
+- 🎨 New features (Chrome extension, visual dashboard, API integration)
+- 📚 Better documentation
+- 💪 More motivation to maintain this
 
-### Basic Usage
+### Support Options
 
-Once installed, the tracker runs automatically. Open the browser console (F12) to see:
+**One-time:**
+- 💶 [€2](https://ko-fi.com/blaci29?amount=2) - Buy me a coffee
+- 💶 [€5](https://ko-fi.com/blaci29?amount=5) - Buy me lunch
+- 💶 [€10](https://ko-fi.com/blaci29?amount=10) - Super supporter
+- 💶 [Custom amount](https://ko-fi.com/blaci29)
 
-- **Round summaries** after each conversation turn
-- **Global statistics** across all conversations
-- **Model information** and thinking detection
+**Monthly:**
+- 💶 [€2/month](https://github.com/sponsors/blaci29) - Coffee supporter
+- 💶 [€5/month](https://github.com/sponsors/blaci29) - Silver supporter (your name in README)
+- 💶 [€9/month](https://github.com/sponsors/blaci29) - Gold supporter (name + vote on roadmap)
+
+**Other Ways:**
+- ⭐ [Star this repo on GitHub](https://github.com/blaci29/claude-token-tracker)
+- 🐛 [Report bugs or request features](https://github.com/blaci29/claude-token-tracker/issues)
+- 🔄 [Share with colleagues who use Claude](https://twitter.com/intent/tweet?text=Check%20out%20Claude%20Token%20Tracker!)
+
+### Hall of Thanks 🙏
+
+*Supporters will be listed here (opt-in)*
+
+---
+
+## 🔒 Privacy & Security
+
+**Your data never leaves your browser.**
+
+- ✅ 100% local tracking
+- ✅ No external servers
+- ✅ No data collection
+- ✅ No analytics or telemetry
+- ✅ Open source - verify yourself
+
+The script only:
+1. Monitors network requests to Claude.ai (stays in your browser)
+2. Counts characters in messages
+3. Displays statistics in your console
+
+**No data is sent anywhere. Period.**
+
+---
+
+## � How to Use
+
+### Basic Usage (Zero Configuration)
+
+Just chat normally with Claude. The tracker works automatically:
+
+1. Send a message to Claude
+2. Open console (`F12` or `Cmd+Option+J` on Mac)
+3. See detailed token breakdown after each response
 
 ### Console Commands
 
-Access these functions from the browser console:
+Want more details? Use these commands in the console:
 
 ```javascript
-// Display all conversation rounds
+// Show all conversation rounds in a table
 window.showAllRounds()
 
-// Show model-specific statistics
+// Compare statistics by model (Sonnet vs Opus vs Haiku)
 window.showModelStats()
 
-// Export data to clipboard as JSON
+// Export all data as JSON
 window.exportJSON()
 
-// Generate blob URL for data
-window.getTrackerURL()
-
-// Reset all tracking data
+// Reset and start fresh
 window.resetTracker()
+```
 
-// Enable enhanced debug mode
+### Advanced: Debug Mode
+
+For troubleshooting or development:
+
+```javascript
+// Enable detailed logging
 window.enableDebug()
 
-// Disable debug mode
-window.disableDebug()
-
-// Download debug log as file
+// Save debug log to file
 window.saveDebugLog()
 
 // Show debug summary
 window.getDebugSummary()
+
+// Turn debug off
+window.disableDebug()
 ```
 
-### Example Output
+---
 
-```
-═══════════════════════════════════════════════════════
-✅ ROUND #1 COMPLETED @ 13:21:23
-🤖 MODEL: Sonnet 4.5
-🧠 THINKING: ✓ YES
-═══════════════════════════════════════════════════════
+## ⚙️ Customization (Optional)
 
-📥 USER INPUT:
-   User message: 125 chars (~48 tokens)
-   Documents: 0 chars (~0 tokens)
-   ─────────────────────────────
-   USER SUBTOTAL: 125 chars (~48 tokens)
+**The tracker works great out-of-the-box, but you can fine-tune it.**
 
-🤖 CLAUDE OUTPUT:
-   Thinking: 1,234 chars (~475 tokens)
-   Assistant: 2,456 chars (~945 tokens)
-   Tool Content: 0 chars (~0 tokens)
-   ─────────────────────────────
-   CLAUDE SUBTOTAL: 3,690 chars (~1,420 tokens)
+### Change Token Estimation
 
-═══════════════════════════════════════════════════════
-📊 ROUND TOTAL: 3,815 chars (~1,468 tokens)
-═══════════════════════════════════════════════════════
-```
+By default, the tracker uses **2.6 characters per token** (~3-5% accurate).
 
-## ⚙️ Configuration
-
-### User Settings
-
-Edit these settings at the top of the script:
+Want better accuracy? Edit these settings at the top of the script:
 
 ```javascript
 const SETTINGS = {
-  // Debug mode on startup
-  DEBUG_MODE_ON_START: false,
-  
-  // Hide Claude.ai console spam
-  HIDE_CLAUDE_CONSOLE_SPAM: true,
-  
-  // Central token estimation (default for all)
+  // Central setting (default for all content types)
   CHARS_PER_TOKEN: 2.6,
   
-  // Fine-tuned estimation per content type
+  // Fine-tune by content type (null = use central)
   TOKEN_ESTIMATION: {
-    userMessage: null,      // null = use central
-    userDocuments: null,
-    thinking: null,
-    assistant: null,
-    toolContent: null,      // e.g., 2.2 for code-heavy content
+    userMessage: null,      // Your messages (2.6 is fine)
+    userDocuments: null,    // PDFs, text files (try 2.8 for documents)
+    thinking: null,         // Claude's thinking (try 2.4 for code-heavy)
+    assistant: null,        // Claude's responses (2.6 is fine)
+    toolContent: null,      // Code artifacts (try 2.2 for pure code)
   },
-  
-  // Large document warning threshold
-  LARGE_DOCUMENT_THRESHOLD: 100000,
-  
-  // Clear texts after saving (memory optimization)
-  CLEAR_TEXTS_AFTER_SAVE: true,
-  
-  // Delay before saving round
-  SAVE_DELAY_MS: 500,
 };
 ```
 
-### Console Spam Filtering
+**Pro tip:** Different content has different "density":
+- **Code** is denser (more tokens per character) → use ~2.2
+- **Natural text** is average → use ~2.6
+- **Documents** are sparser → use ~2.8
 
-The tracker filters out Claude.ai's debug messages by default. To customize:
+### Hide Console Spam
+
+Claude.ai logs a LOT of debug messages. The tracker filters them by default.
+
+To customize which messages to hide:
 
 ```javascript
 CONSOLE_SPAM_PATTERNS: [
   'IsolatedSegment',
   'NOTIFICATION API DEBUG',
   'Violation',
+  'Preferences fetched',
   // Add your own patterns here
 ],
 ```
+
+### Other Settings
+
+```javascript
+const SETTINGS = {
+  // Start with debug mode enabled?
+  DEBUG_MODE_ON_START: false,
+  
+  // Filter Claude.ai console spam?
+  HIDE_CLAUDE_CONSOLE_SPAM: true,
+  
+  // Clear text from memory after each round? (saves RAM)
+  CLEAR_TEXTS_AFTER_SAVE: true,
+  
+  // Large document warning (characters)
+  LARGE_DOCUMENT_THRESHOLD: 100000,
+};
+```
+
+---
+
+## 🎓 Understanding Token Estimation
+
+### Why Not Exact?
+
+Claude.ai **doesn't expose token counts** in the web interface. Only the API does.
+
+So we estimate based on characters: `tokens ≈ characters / 2.6`
+
+This is **~3-5% accurate** for most content.
+
+### How to Get Exact Counts?
+
+1. **Use Claude API directly** (not the web UI)
+2. **Wait for the Chrome extension** (coming soon) - will integrate with API
+
+### Improve Accuracy
+
+Measure your own ratio:
+1. Send messages via API
+2. Compare API token count with character count
+3. Calculate: `ratio = characters / tokens`
+4. Update `CHARS_PER_TOKEN` in settings
+
+Example:
+- 260 characters, 100 tokens → ratio = 2.6 ✓
+- 220 characters, 100 tokens → ratio = 2.2 (code-heavy)
+- 280 characters, 100 tokens → ratio = 2.8 (document-heavy)
+
+---
+
+## 🔧 Troubleshooting
+
+### "Model shows as 'unknown'"
+
+**Problem:** Tracker can't detect which model you're using
+
+**Fix:**
+1. Refresh the page
+2. Make sure the model selector (top-left in Claude UI) is visible
+3. If still broken, Claude may have changed their UI → [report it](https://github.com/blaci29/claude-token-tracker/issues)
+
+### "Console is still spammy"
+
+**Problem:** Some Claude.ai debug messages still show
+
+**Fix:**
+1. Add more patterns to `CONSOLE_SPAM_PATTERNS` in settings
+2. Use Chrome DevTools filter: type `-IsolatedSegment -Violation` in console filter
+3. First page load may show some messages (unavoidable)
+
+### "Token counts seem wrong"
+
+**Problem:** Estimation doesn't match what you expect
+
+**Fix:**
+1. Check if you're looking at different content types (code vs text)
+2. Adjust `CHARS_PER_TOKEN` (higher = fewer estimated tokens)
+3. Measure your actual ratio using API (see "Understanding Token Estimation")
+
+### "Script doesn't work at all"
+
+**Problem:** Tracker not running
+
+**Fix:**
+1. Check Tampermonkey icon → script should be enabled
+2. Refresh Claude.ai page
+3. Open console (`F12`) → look for "CLAUDE TOKEN TRACKER INITIALIZED"
+4. If not there, script isn't running → reinstall or check Tampermonkey settings
+
+### Still stuck?
+
+[Open an issue](https://github.com/blaci29/claude-token-tracker/issues) with:
+- Browser version
+- Tampermonkey version
+- What you tried
+- Console errors (if any)
+
+---
+
+## 🎯 Coming Soon: Chrome Extension
+
+**The Tampermonkey script is just the beginning!**
+
+### Planned Chrome Extension Features
+
+🚀 **Currently in development:**
+
+- 📊 **Visual Dashboard** - No more console, pretty UI with charts
+- 🎯 **Exact Token Counts** - Integration with Claude API for 100% accuracy
+- 📈 **Auto-Tuning** - Automatically calibrates estimation based on your usage
+- 🔔 **Cost Alerts** - Get notified when approaching limits
+- 💾 **Persistent Storage** - Track usage across sessions and days
+- 📤 **Export Options** - CSV, Excel, JSON with historical data
+- ⚡ **Multi-Tab Tracking** - Track all Claude tabs at once
+- 🌙 **Dark/Light Themes** - Matches your Claude.ai theme
+
+### Why Not Now?
+
+Chrome extensions require:
+- Manifest V3 compliance
+- Chrome Web Store approval
+- More extensive testing
+- Visual design work
+
+The Tampermonkey version is **fully functional NOW** and will receive updates until the extension is ready.
+
+### Stay Updated
+
+- ⭐ [Star the repo](https://github.com/blaci29/claude-token-tracker) to get notified
+- 📧 [Follow development](https://github.com/blaci29/claude-token-tracker/issues)
+- 💙 [Support development](https://ko-fi.com/blaci29) to speed it up
+
+---
+
+## 🤝 Contributing
+
+**Contributions are welcome!** This is a community project.
+
+### How to Contribute
+
+- 🐛 **Found a bug?** [Report it](https://github.com/blaci29/claude-token-tracker/issues/new?template=bug_report.md)
+- 💡 **Have an idea?** [Request a feature](https://github.com/blaci29/claude-token-tracker/issues/new?template=feature_request.md)
+- 🔧 **Want to code?** Fork, edit, and submit a PR
+- 📚 **Improve docs?** Fix typos, add examples, translate
+
+### Development
+
+For developers:
+
+1. See [developer-doc.md](developer-doc.md) for internals
+2. Enable debug mode: `window.enableDebug()`
+3. Make changes to the script
+4. Test on Claude.ai
+5. Submit PR with clear description
+
+### Guidelines
+
+- Keep it simple for users
+- Test before submitting
+- Follow existing code style
+- Update docs if needed
+
+---
+
+## 📜 License
+
+**MIT License** - Free to use, modify, and distribute.
+
+See [LICENSE](LICENSE) file for details.
+
+---
+
+## ⚠️ Disclaimer
+
+**This is an unofficial, community-made tool.**
+
+- ✅ Free to use
+- ✅ Open source
+- ✅ No affiliation with Anthropic
+- ⚠️ Token estimates are approximate (~3-5% accurate)
+- ⚠️ For exact billing, check [Anthropic's official API dashboard](https://console.anthropic.com/)
+
+**Use at your own discretion.**
+
+---
+
+## 📞 Support & Contact
+
+### Need Help?
+
+1. Check [Troubleshooting](#-troubleshooting) section
+2. Search [existing issues](https://github.com/blaci29/claude-token-tracker/issues)
+3. [Open a new issue](https://github.com/blaci29/claude-token-tracker/issues/new)
+
+### Community
+
+- 💬 [GitHub Discussions](https://github.com/blaci29/claude-token-tracker/discussions)
+- ⭐ [Star the repo](https://github.com/blaci29/claude-token-tracker)
+- 🐦 [Share on Twitter](https://twitter.com/intent/tweet?text=Check%20out%20Claude%20Token%20Tracker!)
+
+---
+
+## 📊 Project Stats
+
+**Version:** 1.3  
+**Last Updated:** October 13, 2025  
+**Compatibility:** Claude.ai web interface  
+**Browsers:** Chrome, Firefox, Edge, Safari (via Tampermonkey)  
+**Status:** ✅ Active development
+
+---
+
+## 🙏 Thank You
+
+Thank you for using Claude Token Tracker!
+
+If this tool helps you:
+- ⭐ Star the repo
+- 💙 [Support development](https://ko-fi.com/blaci29)
+- 🔄 Share with others
+- 🐛 Report bugs
+- 💡 Suggest features
+
+**Together we can make Claude.ai more transparent!** 🚀
+
+---
+
+*Made with ❤️ by developers, for developers (and anyone who uses Claude)*
 
 ## 📈 Data Structure
 
