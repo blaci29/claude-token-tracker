@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Claude Token Tracker
 // @namespace    http://tampermonkey.net/
-// @version      1.2
-// @description  Real-time token usage tracking for Claude.ai conversations with configurable estimation
+// @version      1.3
+// @description  Real-time token usage tracking for Claude.ai with console spam filtering
 // @author       You
 // @match        https://claude.ai/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=claude.ai
@@ -20,7 +20,28 @@
 const SETTINGS = {
   // === DEBUG MODE ===
   // Enable debug mode on startup?
-  DEBUG_MODE_ON_START: true,
+  DEBUG_MODE_ON_START: false,
+  
+  // === CONSOLE FILTERING ===
+  // Hide Claude.ai's own console spam?
+  HIDE_CLAUDE_CONSOLE_SPAM: true,
+  
+  // Spam patterns to filter out (case-insensitive)
+  CONSOLE_SPAM_PATTERNS: [
+    '[IsolatedSegment]',
+    '[NOTIFICATION API DEBUG]',
+    '[Violation]',
+    'Preferences fetched successfully',
+    'Intercom',
+    'handler took',
+    'Forced reflow',
+    'honeycombio',
+    'statsig.anthropic.com',
+    'Analytics loaded successfully',
+    'Message received from parent',
+    'sendMessage called',
+    'Launcher is disabled'
+  ],
   
   // === CENTRAL TOKEN ESTIMATION ===
   // Default chars per token ratio for ALL content types
@@ -86,6 +107,53 @@ const SETTINGS = {
 // ═══════════════════════════════════════════════════════════════════
 // END OF USER SETTINGS
 // ═══════════════════════════════════════════════════════════════════
+
+// === CONSOLE SPAM FILTER ===
+if (SETTINGS.HIDE_CLAUDE_CONSOLE_SPAM) {
+  // Save original console methods
+  const _originalConsoleLog = console.log;
+  const _originalConsoleWarn = console.warn;
+  const _originalConsoleError = console.error;
+  const _originalConsoleInfo = console.info;
+  
+  // Helper function to check if message should be filtered
+  function shouldFilter(args) {
+    const message = args.map(arg => {
+      if (typeof arg === 'string') return arg;
+      if (typeof arg === 'object') return JSON.stringify(arg);
+      return String(arg);
+    }).join(' ');
+    
+    return SETTINGS.CONSOLE_SPAM_PATTERNS.some(pattern => 
+      message.includes(pattern)
+    );
+  }
+  
+  // Override console methods
+  console.log = function(...args) {
+    if (!shouldFilter(args)) {
+      _originalConsoleLog.apply(console, args);
+    }
+  };
+  
+  console.warn = function(...args) {
+    if (!shouldFilter(args)) {
+      _originalConsoleWarn.apply(console, args);
+    }
+  };
+  
+  console.error = function(...args) {
+    if (!shouldFilter(args)) {
+      _originalConsoleError.apply(console, args);
+    }
+  };
+  
+  console.info = function(...args) {
+    if (!shouldFilter(args)) {
+      _originalConsoleInfo.apply(console, args);
+    }
+  };
+}
 
 console.clear();
 console.log('');
@@ -982,13 +1050,6 @@ async function processSSEStream(stream) {
 }
 
 // === INITIALIZATION ===
-if (debugMode) {
-  console.log('═══════════════════════════════════════════════════════');
-  console.log('🐛 DEBUG MODE IS ACTIVE (set in SETTINGS)');
-  console.log('═══════════════════════════════════════════════════════');
-  console.log('');
-}
-
 console.log('✅ CLAUDE TOKEN TRACKER ACTIVE!');
 console.log('');
 console.log('📌 Features:');
@@ -996,6 +1057,7 @@ console.log('   - Automatic token tracking for every conversation round');
 console.log('   - Model tracking & thinking detection');
 console.log('   - DOM-based model detection');
 console.log('   - Configurable token estimation per content type');
+console.log('   - Console spam filtering (clean console!)');
 console.log('   - Enhanced debug mode with endpoint filtering');
 console.log('   - Debug log export to file');
 console.log('   - Document support (txt, pdf, etc.)');
@@ -1003,6 +1065,7 @@ console.log('   - Memory optimized (texts cleared after processing)');
 console.log('');
 console.log('⚙️ CURRENT SETTINGS:');
 console.log(`   Debug mode: ${SETTINGS.DEBUG_MODE_ON_START ? 'ON' : 'OFF'}`);
+console.log(`   Console spam filtering: ${SETTINGS.HIDE_CLAUDE_CONSOLE_SPAM ? 'ON' : 'OFF'}`);
 console.log(`   Central chars/token: ${SETTINGS.CHARS_PER_TOKEN}`);
 console.log(`   Custom estimation:`);
 console.log(`      User message: ${SETTINGS.TOKEN_ESTIMATION.userMessage || 'central'}`);
