@@ -3,14 +3,25 @@
  * Central message handler and coordination
  */
 
+console.log('Step 1: Worker starting...');
+
+importScripts('/src/shared/constants.js');
+
+console.log('Step 2: Import done, CONSTANTS:', typeof CONSTANTS);
+
+chrome.runtime.onInstalled.addListener(() => {
+  console.log('Step 3: Extension installed');
+});
+
+console.log('Step 4: Worker ready');
 // Import modules (Note: In MV3, we need to use importScripts)
 importScripts(
-  '../shared/constants.js',
-  '../shared/utils.js',
-  '../shared/estimator.js',
-  'storage.js',
-  'timer.js',
-  'aggregator.js'
+  '/src/shared/constants.js',
+  '/src/shared/utils.js',
+  '/src/shared/estimator.js',
+  '/src/background/storage.js',
+  '/src/background/timer.js',
+  '/src/background/aggregator.js'
 );
 
 console.log('Claude Token Tracker Service Worker starting...');
