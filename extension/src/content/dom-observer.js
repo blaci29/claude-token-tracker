@@ -135,20 +135,17 @@ const DOMObserver = {
   onTitleChange: Utils.debounce(function() {
     // Check if extension context is still valid
     try {
-      if (!chrome.runtime?.id) {
+      if (!chrome?.runtime?.id) {
         return; // Extension was reloaded, skip
       }
-    } catch (e) {
-      return; // Extension context invalidated
-    }
-    
-    try {
+      
       // Update overlay if active
       if (window.OverlayManager && window.OverlayManager.isVisible()) {
         window.OverlayManager.updateChatTitle();
       }
     } catch(e) {
-      // Silently ignore errors
+      // Extension context invalidated - silently ignore
+      return;
     }
   }, 500),
   

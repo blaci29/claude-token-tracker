@@ -31,6 +31,7 @@ async function loadData() {
     
     if (chatsResponse?.success) {
       allChats = chatsResponse.data || {};
+      console.log('📦 Loaded chats:', Object.keys(allChats).length, allChats);
     }
     
     // Get timer status
@@ -40,6 +41,7 @@ async function loadData() {
     
     if (timerResponse?.success) {
       timerStatus = timerResponse.data;
+      console.log('⏱️ Timer status:', timerStatus);
     }
     
   } catch (error) {
@@ -241,13 +243,35 @@ function calculateStatsFromRoundIds(roundIds) {
     byModel: {}
   };
   
+  if (!roundIds || roundIds.length === 0) {
+    console.log('⚠️ No roundIds to calculate');
+    return stats;
+  }
+  
+  console.log(`📊 Calculating stats from ${roundIds.length} rounds:`, roundIds);
+  
   for (const roundId of roundIds) {
     const [chatId, roundNumber] = roundId.split(':');
     const chat = allChats[chatId];
-    if (!chat?.rounds) continue;
     
-    const round = chat.rounds[roundNumber - 1];
-    if (!round) continue;
+    if (!chat) {
+      console.warn(`❌ Chat not found: ${chatId}`);
+      continue;
+    }
+    
+    if (!chat.rounds || !Array.isArray(chat.rounds)) {
+      console.warn(`❌ Chat ${chatId} has no rounds array`);
+      continue;
+    }
+    
+    const round = chat.rounds[parseInt(roundNumber) - 1];
+    
+    if (!round) {
+      console.warn(`❌ Round ${roundNumber} not found in chat ${chatId} (has ${chat.rounds.length} rounds)`);
+      continue;
+    }
+    
+    console.log(`✅ Found round ${roundNumber} in chat ${chatId}:`, round.total?.tokens, 'tokens');
     
     stats.total += round.total?.tokens || 0;
     stats.byType.user += round.user?.tokens || 0;
@@ -262,6 +286,7 @@ function calculateStatsFromRoundIds(roundIds) {
     stats.byModel[model] += round.total?.tokens || 0;
   }
   
+  console.log('📈 Final stats:', stats);
   return stats;
 }
 
@@ -320,7 +345,10 @@ function renderConversations() {
   document.querySelectorAll('.chat-item').forEach(item => {
     item.addEventListener('click', () => {
       const chatId = item.dataset.chatId;
-      window.open(allChats[chatId].url, '_blank');
+      const chat = allChats[chatId];
+      if (chat?.url) {
+        window.open(chat.url, '_blank');
+      }
     });
   });
 }

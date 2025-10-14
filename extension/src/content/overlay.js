@@ -450,10 +450,14 @@ const OverlayManager = {
    * Open stats page
    */
   openStats() {
-    chrome.runtime.sendMessage({
-      type: 'OPEN_STATS_PAGE',
-      data: { chatId: this.currentChatId }
-    });
+    try {
+      chrome.runtime.sendMessage({
+        type: 'OPEN_STATS_PAGE',
+        data: { chatId: this.currentChatId }
+      });
+    } catch (error) {
+      console.warn('Extension context invalidated, cannot open stats');
+    }
   },
   
   /**
@@ -461,7 +465,11 @@ const OverlayManager = {
    */
   openSettings() {
     // Content scripts cannot directly open options page, send message to background
-    chrome.runtime.sendMessage({ type: 'OPEN_OPTIONS_PAGE' });
+    try {
+      chrome.runtime.sendMessage({ type: 'OPEN_OPTIONS_PAGE' });
+    } catch (error) {
+      console.warn('Extension context invalidated, cannot open settings');
+    }
   },
   
   /**
@@ -506,13 +514,17 @@ const OverlayManager = {
    * Save position
    */
   async savePosition(position) {
-    const settings = await this.getSettings();
-    settings.overlayPosition = position;
-    
-    await chrome.runtime.sendMessage({
-      type: CONSTANTS.MSG_TYPES.UPDATE_SETTINGS,
-      data: { settings }
-    });
+    try {
+      const settings = await this.getSettings();
+      settings.overlayPosition = position;
+      
+      await chrome.runtime.sendMessage({
+        type: CONSTANTS.MSG_TYPES.UPDATE_SETTINGS,
+        data: { settings }
+      });
+    } catch (error) {
+      console.warn('Extension context invalidated, cannot save position');
+    }
   }
 };
 
