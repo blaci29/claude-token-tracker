@@ -18,7 +18,7 @@
   /* === TEXT COLORS === */
   --text-primary: #1D1D1F;
   --text-secondary: #86868B;
-  --text-tertiary: #D2D2D7;
+  --text-tertiary: #c8c8ca;
   --text-inverse: #FFFFFF;
   
   /* === ACCENT COLORS === */
@@ -63,6 +63,7 @@
   --leading-relaxed: 1.7;
   
   /* === SPACING (8px Grid) === */
+  --space-0: 2px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
