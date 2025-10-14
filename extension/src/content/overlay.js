@@ -242,8 +242,12 @@ const OverlayManager = {
     }
     
     // Check if extension context is still valid
-    if (!chrome.runtime?.id) {
-      return; // Extension was reloaded, skip
+    try {
+      if (!chrome.runtime?.id) {
+        return; // Extension was reloaded, skip
+      }
+    } catch (e) {
+      return; // Extension context invalidated
     }
     
     try {

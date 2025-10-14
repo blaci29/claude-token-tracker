@@ -87,8 +87,12 @@ const DOMObserver = {
    */
   async onChatChange(chatId) {
     // Check if extension context is still valid
-    if (!chrome.runtime?.id) {
-      return; // Extension was reloaded, skip
+    try {
+      if (!chrome.runtime?.id) {
+        return; // Extension was reloaded, skip
+      }
+    } catch (e) {
+      return; // Extension context invalidated
     }
     
     try {
@@ -130,8 +134,12 @@ const DOMObserver = {
    */
   onTitleChange: Utils.debounce(function() {
     // Check if extension context is still valid
-    if (!chrome.runtime?.id) {
-      return; // Extension was reloaded, skip
+    try {
+      if (!chrome.runtime?.id) {
+        return; // Extension was reloaded, skip
+      }
+    } catch (e) {
+      return; // Extension context invalidated
     }
     
     try {
