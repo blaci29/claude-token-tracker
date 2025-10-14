@@ -176,6 +176,17 @@ const Interceptor = {
    */
   detectChatTitle() {
     try {
+      // Try DOM selector first (more reliable for Claude.ai)
+      const titleDiv = document.querySelector('.min-w-0.flex-1 .truncate.font-base-bold');
+      if (titleDiv && titleDiv.textContent) {
+        const title = titleDiv.textContent.trim();
+        if (title && title.length > 0) {
+          console.log('✅ Title from DOM:', title);
+          return title;
+        }
+      }
+      
+      // Fallback to <title> tag
       const titleElement = document.querySelector('title');
       if (titleElement) {
         const fullTitle = titleElement.textContent?.trim() || '';
@@ -190,7 +201,7 @@ const Interceptor = {
           console.log('🔍 Extracted title:', title);
           
           if (title && title.length > 0 && title !== 'Claude') {
-            console.log('✅ Using title:', title);
+            console.log('✅ Using title from <title> tag:', title);
             return title;
           }
         }

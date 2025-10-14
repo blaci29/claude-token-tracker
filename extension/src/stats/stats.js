@@ -353,17 +353,8 @@ function renderConversations() {
     `;
   }).join('');
   
-  // Add click listeners
-  document.querySelectorAll('.chat-item').forEach(item => {
-    item.addEventListener('click', () => {
-      const chatId = item.dataset.chatId;
-      const chat = allChats[chatId];
-      if (chat?.url) {
-        // Navigate to chat in same tab
-        window.location.href = chat.url;
-      }
-    });
-  });
+  // TODO: Add click listeners for detail view
+  // For now, chat items are not clickable
 }
 
 /**
