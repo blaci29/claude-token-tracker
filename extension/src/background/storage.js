@@ -36,8 +36,8 @@ export const StorageManager = {
         },
         chats: {},
         timers: {
-          fourHour: { startTime: null, endTime: null, tokens: 0 },
-          weekly: { startTime: null, endTime: null, tokens: 0 }
+          fourHour: { startTime: null, endTime: null, roundIds: [] },
+          weekly: { startTime: null, endTime: null, roundIds: [] }
         }
       });
       console.log('Storage initialized with defaults');
