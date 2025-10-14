@@ -106,8 +106,15 @@ const OverlayManager = {
     const settingsBtn = overlay.querySelector('#ctt-settings');
     
     // Drag functionality
+    let dragStarted = false;
+    let startX, startY;
+    
     header.addEventListener('mousedown', (e) => {
       if (e.target.closest('.ctt-overlay-controls')) return;
+      
+      dragStarted = false;
+      startX = e.clientX;
+      startY = e.clientY;
       
       this.isDragging = true;
       this.dragOffset.x = e.clientX - overlay.offsetLeft;
@@ -119,23 +126,42 @@ const OverlayManager = {
     document.addEventListener('mousemove', (e) => {
       if (!this.isDragging) return;
       
-      const x = e.clientX - this.dragOffset.x;
-      const y = e.clientY - this.dragOffset.y;
+      // Check if mouse moved enough to consider it a drag
+      const moveX = Math.abs(e.clientX - startX);
+      const moveY = Math.abs(e.clientY - startY);
       
-      overlay.style.left = x + 'px';
-      overlay.style.top = y + 'px';
+      if (moveX > 5 || moveY > 5) {
+        dragStarted = true;
+      }
+      
+      if (dragStarted) {
+        const x = e.clientX - this.dragOffset.x;
+        const y = e.clientY - this.dragOffset.y;
+        
+        overlay.style.left = x + 'px';
+        overlay.style.top = y + 'px';
+      }
     });
     
-    document.addEventListener('mouseup', async () => {
+    document.addEventListener('mouseup', async (e) => {
       if (this.isDragging) {
         this.isDragging = false;
         overlay.style.cursor = 'move';
         
-        // Save position
-        await this.savePosition({
-          x: parseInt(overlay.style.left),
-          y: parseInt(overlay.style.top)
-        });
+        // If didn't drag, treat as click
+        if (!dragStarted && this.isMinimized) {
+          this.toggleMinimize();
+        }
+        
+        // Save position if dragged
+        if (dragStarted) {
+          await this.savePosition({
+            x: parseInt(overlay.style.left),
+            y: parseInt(overlay.style.top)
+          });
+        }
+        
+        dragStarted = false;
       }
     });
     
@@ -157,13 +183,6 @@ const OverlayManager = {
     // Settings
     settingsBtn.addEventListener('click', () => {
       this.openSettings();
-    });
-    
-    // Click header when minimized to maximize
-    header.addEventListener('click', () => {
-      if (this.isMinimized) {
-        this.toggleMinimize();
-      }
     });
   },
   
@@ -201,10 +220,14 @@ const OverlayManager = {
   toggleMinimize() {
     this.isMinimized = !this.isMinimized;
     
+    const minimizeBtn = this.overlay.querySelector('#ctt-minimize span');
+    
     if (this.isMinimized) {
       this.overlay.classList.add('minimized');
+      minimizeBtn.textContent = '□'; // Maximize icon
     } else {
       this.overlay.classList.remove('minimized');
+      minimizeBtn.textContent = '−'; // Minimize icon
     }
   },
   
@@ -216,6 +239,11 @@ const OverlayManager = {
     if (this.isLoading) {
       console.log('Already loading, skipping...');
       return;
+    }
+    
+    // Check if extension context is still valid
+    if (!chrome.runtime?.id) {
+      return; // Extension was reloaded, skip
     }
     
     try {

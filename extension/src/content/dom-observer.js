@@ -86,13 +86,18 @@ const DOMObserver = {
    * Handle chat change
    */
   async onChatChange(chatId) {
+    // Check if extension context is still valid
+    if (!chrome.runtime?.id) {
+      return; // Extension was reloaded, skip
+    }
+    
     try {
       // Notify overlay to update
       if (window.OverlayManager) {
         window.OverlayManager.onChatChange(chatId);
       }
     } catch(e) {
-      // Ignore errors (extension context invalidated after reload)
+      // Silently ignore errors
     }
   },
   
@@ -124,13 +129,18 @@ const DOMObserver = {
    * Handle title change
    */
   onTitleChange: Utils.debounce(function() {
+    // Check if extension context is still valid
+    if (!chrome.runtime?.id) {
+      return; // Extension was reloaded, skip
+    }
+    
     try {
       // Update overlay if active
       if (window.OverlayManager && window.OverlayManager.isVisible()) {
         window.OverlayManager.updateChatTitle();
       }
     } catch(e) {
-      // Ignore errors (extension context invalidated after reload)
+      // Silently ignore errors
     }
   }, 500),
   
