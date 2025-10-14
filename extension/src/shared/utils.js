@@ -88,6 +88,40 @@ const Utils = {
   },
   
   /**
+   * Format timestamp as relative time (e.g., "5m ago", "just now")
+   */
+  formatRelativeTime(timestamp) {
+    const now = Date.now();
+    const diffMs = now - timestamp;
+    const diffSeconds = Math.floor(diffMs / 1000);
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffSeconds < 60) {
+      return 'just now';
+    }
+    if (diffMinutes < 60) {
+      return `${diffMinutes}m ago`;
+    }
+    if (diffHours < 24) {
+      return `${diffHours}h ago`;
+    }
+    if (diffDays < 7) {
+      return `${diffDays}d ago`;
+    }
+    
+    // More than a week ago - show actual date and time
+    const date = new Date(timestamp);
+    return date.toLocaleString(undefined, { 
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  },
+  
+  /**
    * Format date to readable string
    */
   formatDate(timestamp) {

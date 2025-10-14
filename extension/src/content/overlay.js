@@ -357,7 +357,7 @@ const OverlayManager = {
           <div class="ctt-section-title">🔄 Last Round (#${lastRound.roundNumber})</div>
           <div class="ctt-round-info">
             <div class="ctt-round-header">
-              <div class="ctt-round-number">⏱️ ${Utils.formatTime(lastRound.timestamp)}</div>
+              <div class="ctt-round-number">⏱️ ${Utils.formatRelativeTime(lastRound.timestamp)}</div>
               <div class="ctt-round-model">
                 🤖 ${lastRound.model}${lastRound.hasThinking ? ' + 🧠' : ''}
               </div>
