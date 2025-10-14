@@ -181,9 +181,6 @@ function formatTimerStatus(timer) {
 function renderTokenBreakdown(roundIds, section) {
   const stats = calculateStatsFromRoundIds(roundIds);
   
-  const percentage = section === 'allTime' ? 100 : 
-    (stats.total / (section === 'fourHour' ? 50000 : 200000)) * 100;
-  
   // Calculate total Opus tokens (all Opus versions combined)
   let opusTokens = 0;
   for (const modelName in stats.byModel) {
@@ -202,37 +199,31 @@ function renderTokenBreakdown(roundIds, section) {
   return `
     <div class="token-breakdown">
       <div class="stat-row total-row">
-        <span class="stat-label">Total Tokens</span>
-        <span class="stat-value">${Utils.formatLargeNumber(stats.total)}</span>
+        <span class="stat-label">Total</span>
+        <span class="stat-value">${Utils.formatLargeNumber(stats.total.chars)} (~${Utils.formatLargeNumber(stats.total.tokens)})</span>
       </div>
-      ${section !== 'allTime' ? `
-        <div class="progress-bar">
-          <div class="progress-fill" style="width: ${Math.min(percentage, 100)}%"></div>
-        </div>
-        <div class="stat-label-small">${percentage.toFixed(1)}% of limit</div>
-      ` : ''}
-      
+
       <div class="stat-divider"></div>
       
       <div class="stat-row">
         <span class="stat-label">👤 User Messages</span>
-        <span class="stat-value">${Utils.formatLargeNumber(stats.byType.user)}</span>
+        <span class="stat-value">${Utils.formatLargeNumber(stats.byType.user.chars)} (~${Utils.formatLargeNumber(stats.byType.user.tokens)})</span>
       </div>
       <div class="stat-row">
         <span class="stat-label">📄 Documents</span>
-        <span class="stat-value">${Utils.formatLargeNumber(stats.byType.documents)}</span>
+        <span class="stat-value">${Utils.formatLargeNumber(stats.byType.documents.chars)} (~${Utils.formatLargeNumber(stats.byType.documents.tokens)})</span>
       </div>
       <div class="stat-row">
         <span class="stat-label">🧠 Thinking</span>
-        <span class="stat-value">${Utils.formatLargeNumber(stats.byType.thinking)}</span>
+        <span class="stat-value">${Utils.formatLargeNumber(stats.byType.thinking.chars)} (~${Utils.formatLargeNumber(stats.byType.thinking.tokens)})</span>
       </div>
       <div class="stat-row">
         <span class="stat-label">🤖 Assistant</span>
-        <span class="stat-value">${Utils.formatLargeNumber(stats.byType.assistant)}</span>
+        <span class="stat-value">${Utils.formatLargeNumber(stats.byType.assistant.chars)} (~${Utils.formatLargeNumber(stats.byType.assistant.tokens)})</span>
       </div>
       <div class="stat-row">
         <span class="stat-label">🔧 Tools</span>
-        <span class="stat-value">${Utils.formatLargeNumber(stats.byType.toolContent)}</span>
+        <span class="stat-value">${Utils.formatLargeNumber(stats.byType.toolContent.chars)} (~${Utils.formatLargeNumber(stats.byType.toolContent.tokens)})</span>
       </div>
       
       ${opusSection}
@@ -252,13 +243,13 @@ function renderTokenBreakdown(roundIds, section) {
  */
 function calculateStatsFromRoundIds(roundIds) {
   const stats = {
-    total: 0,
+    total: { chars: 0, tokens: 0 },
     byType: {
-      user: 0,
-      documents: 0,
-      thinking: 0,
-      assistant: 0,
-      toolContent: 0
+      user: { chars: 0, tokens: 0 },
+      documents: { chars: 0, tokens: 0 },
+      thinking: { chars: 0, tokens: 0 },
+      assistant: { chars: 0, tokens: 0 },
+      toolContent: { chars: 0, tokens: 0 }
     },
     byModel: {}
   };
@@ -291,14 +282,26 @@ function calculateStatsFromRoundIds(roundIds) {
       continue;
     }
     
-    console.log(`✅ Found round ${roundNumber} in chat ${chatId}:`, round.total?.tokens, 'tokens');
+    console.log(`✅ Found round ${roundNumber} in chat ${chatId}:`, round.total?.tokens, 'tokens', round.total?.chars, 'chars');
     
-    stats.total += round.total?.tokens || 0;
-    stats.byType.user += round.user?.tokens || 0;
-    stats.byType.documents += round.documents?.tokens || 0;
-    stats.byType.thinking += round.thinking?.tokens || 0;
-    stats.byType.assistant += round.assistant?.tokens || 0;
-    stats.byType.toolContent += round.toolContent?.tokens || 0;
+    // Accumulate totals - both chars and tokens
+    stats.total.chars += round.total?.chars || 0;
+    stats.total.tokens += round.total?.tokens || 0;
+    
+    stats.byType.user.chars += round.user?.chars || 0;
+    stats.byType.user.tokens += round.user?.tokens || 0;
+    
+    stats.byType.documents.chars += round.documents?.chars || 0;
+    stats.byType.documents.tokens += round.documents?.tokens || 0;
+    
+    stats.byType.thinking.chars += round.thinking?.chars || 0;
+    stats.byType.thinking.tokens += round.thinking?.tokens || 0;
+    
+    stats.byType.assistant.chars += round.assistant?.chars || 0;
+    stats.byType.assistant.tokens += round.assistant?.tokens || 0;
+    
+    stats.byType.toolContent.chars += round.toolContent?.chars || 0;
+    stats.byType.toolContent.tokens += round.toolContent?.tokens || 0;
     
     // Track by model
     const model = round.model || 'unknown';
@@ -348,7 +351,7 @@ function renderConversations() {
     const roundCount = chat.rounds?.length || 0;
     
     return `
-      <div class="chat-item" data-chat-id="${chat.id}">
+      <div class="chat-item" data-chat-id="${chat.id}" onclick="showChatDetail('${chat.id}')">
         <div class="chat-item-header">
           <h3 class="chat-item-title">${escapeHtml(chat.title)}</h3>
           <span class="chat-item-date">${formatDate(chat.lastActive)}</span>
@@ -360,9 +363,6 @@ function renderConversations() {
       </div>
     `;
   }).join('');
-  
-  // TODO: Add click listeners for detail view
-  // For now, chat items are not clickable
 }
 
 /**
@@ -400,6 +400,142 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+/**
+ * Show chat detail view
+ */
+function showChatDetail(chatId) {
+  const chat = allChats[chatId];
+  if (!chat) return;
+  
+  // Hide conversations list
+  document.getElementById('conversations-section').style.display = 'none';
+  
+  // Show detail view
+  const detailView = document.getElementById('chat-detail-view') || createChatDetailView();
+  detailView.style.display = 'block';
+  
+  // Render chat details
+  renderChatDetail(chat);
+}
+
+/**
+ * Create chat detail view container
+ */
+function createChatDetailView() {
+  const detailView = document.createElement('section');
+  detailView.id = 'chat-detail-view';
+  detailView.className = 'stats-section';
+  detailView.innerHTML = `
+    <div class="section-header">
+      <button id="back-to-list" class="back-button">← Back to List</button>
+      <h2 id="detail-chat-title" class="section-title"></h2>
+    </div>
+    <div id="detail-chat-content"></div>
+  `;
+  
+  // Insert after conversations section
+  const conversationsSection = document.getElementById('conversations-section');
+  conversationsSection.parentNode.insertBefore(detailView, conversationsSection.nextSibling);
+  
+  // Add back button listener
+  document.getElementById('back-to-list').addEventListener('click', hideChatDetail);
+  
+  return detailView;
+}
+
+/**
+ * Render chat detail content
+ */
+function renderChatDetail(chat) {
+  document.getElementById('detail-chat-title').textContent = chat.title;
+  
+  const content = document.getElementById('detail-chat-content');
+  
+  // Chat metadata
+  const metadata = `
+    <div class="chat-metadata">
+      <div class="metadata-item">
+        <span class="metadata-label">Chat ID:</span>
+        <span class="metadata-value">${chat.id.substring(0, 12)}...</span>
+      </div>
+      <div class="metadata-item">
+        <span class="metadata-label">Last Active:</span>
+        <span class="metadata-value">${new Date(chat.lastActive).toLocaleString()}</span>
+      </div>
+      <div class="metadata-item">
+        <span class="metadata-label">Total Rounds:</span>
+        <span class="metadata-value">${chat.rounds?.length || 0}</span>
+      </div>
+      <div class="metadata-item">
+        <span class="metadata-label">Total Tokens:</span>
+        <span class="metadata-value">${Utils.formatLargeNumber(chat.stats?.totalTokens || 0)}</span>
+      </div>
+      <div class="metadata-item">
+        <span class="metadata-label">Total Characters:</span>
+        <span class="metadata-value">${Utils.formatLargeNumber(chat.stats?.totalChars || 0)}</span>
+      </div>
+    </div>
+  `;
+  
+  // Rounds list
+  const rounds = chat.rounds || [];
+  const roundsList = rounds.map((round, index) => `
+    <div class="round-detail">
+      <div class="round-header">
+        <h3 class="round-title">Round #${index + 1}</h3>
+        <span class="round-model">🤖 ${round.model || 'Unknown'}</span>
+        <span class="round-time">${Utils.formatRelativeTime(round.timestamp)}</span>
+      </div>
+      <div class="round-stats">
+        <div class="stat-row">
+          <span class="stat-label">👤 User</span>
+          <span class="stat-value">${Utils.formatLargeNumber(round.user?.chars || 0)} (~${Utils.formatLargeNumber(round.user?.tokens || 0)})</span>
+        </div>
+        ${round.documents && round.documents.chars > 0 ? `
+          <div class="stat-row">
+            <span class="stat-label">📄 Documents</span>
+            <span class="stat-value">${Utils.formatLargeNumber(round.documents.chars)} (~${Utils.formatLargeNumber(round.documents.tokens)})</span>
+          </div>
+        ` : ''}
+        ${round.thinking && round.thinking.chars > 0 ? `
+          <div class="stat-row">
+            <span class="stat-label">🧠 Thinking</span>
+            <span class="stat-value">${Utils.formatLargeNumber(round.thinking.chars)} (~${Utils.formatLargeNumber(round.thinking.tokens)})</span>
+          </div>
+        ` : ''}
+        <div class="stat-row">
+          <span class="stat-label">🤖 Assistant</span>
+          <span class="stat-value">${Utils.formatLargeNumber(round.assistant?.chars || 0)} (~${Utils.formatLargeNumber(round.assistant?.tokens || 0)})</span>
+        </div>
+        ${round.toolContent && round.toolContent.chars > 0 ? `
+          <div class="stat-row">
+            <span class="stat-label">🔧 Tools</span>
+            <span class="stat-value">${Utils.formatLargeNumber(round.toolContent.chars)} (~${Utils.formatLargeNumber(round.toolContent.tokens)})</span>
+          </div>
+        ` : ''}
+        <div class="stat-row total-row">
+          <span class="stat-label">✨ Total</span>
+          <span class="stat-value">${Utils.formatLargeNumber(round.total?.chars || 0)} (~${Utils.formatLargeNumber(round.total?.tokens || 0)})</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+  
+  content.innerHTML = metadata + '<div class="rounds-list">' + roundsList + '</div>';
+}
+
+/**
+ * Hide chat detail view and show conversations list
+ */
+function hideChatDetail() {
+  const detailView = document.getElementById('chat-detail-view');
+  if (detailView) {
+    detailView.style.display = 'none';
+  }
+  
+  document.getElementById('conversations-section').style.display = 'block';
 }
 
 // Initialize on load
