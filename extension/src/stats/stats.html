@@ -6,6 +6,7 @@
   <title>Claude Token Tracker - Statistics</title>
   <link rel="stylesheet" href="../assets/styles/common.css">
   <link rel="stylesheet" href="stats.css">
+  <link rel="stylesheet" href="stats-addon.css">
 </head>
 <body>
   <div class="stats-container">
@@ -29,57 +30,77 @@
 
     <!-- Main View -->
     <div id="main-view" class="stats-content">
-      <!-- Filters -->
-      <section class="filter-section">
-        <div class="filter-buttons">
-          <button class="filter-btn active" data-filter="all">All Time</button>
-          <button class="filter-btn" data-filter="week">This Week</button>
-          <button class="filter-btn" data-filter="today">Today</button>
-          <button class="filter-btn" data-filter="4h">Last 4 Hours</button>
+      
+      <!-- Current Session (4-Hour) -->
+      <section class="timer-section">
+        <div class="section-header-row">
+          <h2 class="section-title">⏱️ Current Session (4-Hour)</h2>
+          <div class="timer-status" id="timer-4h-status">Loading...</div>
         </div>
-      </section>
-
-      <!-- Summary Cards -->
-      <section class="summary-section">
-        <div class="summary-cards">
-          <div class="summary-card">
-            <div class="card-icon">⏱️</div>
-            <div class="card-content">
-              <h3 class="card-title">4 Hour Usage</h3>
-              <p class="card-value" id="summary-4h">0 tokens</p>
-              <p class="card-subtitle" id="summary-4h-sub">0 rounds • 0 chats</p>
-            </div>
+        
+        <div class="timer-content">
+          <div class="timer-stats" id="timer-4h-stats">
+            <!-- Populated by JS -->
           </div>
-
-          <div class="summary-card">
-            <div class="card-icon">📅</div>
-            <div class="card-content">
-              <h3 class="card-title">This Week</h3>
-              <p class="card-value" id="summary-week">0 tokens</p>
-              <p class="card-subtitle" id="summary-week-sub">0 rounds • 0 chats</p>
-            </div>
-          </div>
-
-          <div class="summary-card">
-            <div class="card-icon">🌍</div>
-            <div class="card-content">
-              <h3 class="card-title">All Time</h3>
-              <p class="card-value" id="summary-total">0 tokens</p>
-              <p class="card-subtitle" id="summary-total-sub">0 rounds • 0 chats</p>
+          
+          <div class="timer-controls">
+            <label class="control-label">Set end time (vésztartalék):</label>
+            <div class="time-input-row">
+              <input type="number" id="set-4h-hours" min="0" max="23" placeholder="0" class="time-input">
+              <span>hr</span>
+              <input type="number" id="set-4h-minutes" min="0" max="59" placeholder="0" class="time-input">
+              <span>min</span>
+              <button id="set-4h-btn" class="btn btn-secondary btn-sm">Set</button>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- Model Breakdown -->
-      <section class="model-section">
-        <h2 class="section-title">🤖 Model Usage</h2>
-        <div id="model-breakdown" class="model-breakdown">
-          <!-- Populated by JS -->
+      <!-- Weekly Session -->
+      <section class="timer-section">
+        <div class="section-header-row">
+          <h2 class="section-title">📅 Weekly Session</h2>
+          <div class="timer-status" id="timer-weekly-status">Loading...</div>
+        </div>
+        
+        <div class="timer-content">
+          <div class="timer-stats" id="timer-weekly-stats">
+            <!-- Populated by JS -->
+          </div>
+          
+          <div class="timer-controls">
+            <label class="control-label">Set end time (vésztartalék):</label>
+            <div class="time-input-row">
+              <select id="set-weekly-day" class="time-input">
+                <option value="0">Sunday</option>
+                <option value="1">Monday</option>
+                <option value="2">Tuesday</option>
+                <option value="3">Wednesday</option>
+                <option value="4" selected>Thursday</option>
+                <option value="5">Friday</option>
+                <option value="6">Saturday</option>
+              </select>
+              <input type="time" id="set-weekly-time" value="09:59" class="time-input">
+              <button id="set-weekly-btn" class="btn btn-secondary btn-sm">Set</button>
+            </div>
+          </div>
         </div>
       </section>
 
-      <!-- Chat List -->
+      <!-- All Time -->
+      <section class="timer-section">
+        <div class="section-header-row">
+          <h2 class="section-title">🌍 All Time</h2>
+        </div>
+        
+        <div class="timer-content">
+          <div class="timer-stats" id="timer-alltime-stats">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Conversations -->
       <section class="chat-list-section">
         <div class="section-header">
           <h2 class="section-title">💬 Conversations</h2>
@@ -95,12 +116,6 @@
 
         <div id="chat-list" class="chat-list">
           <!-- Populated by JS -->
-        </div>
-
-        <div id="chat-pagination" class="pagination hidden">
-          <button id="prev-page" class="btn btn-sm btn-secondary">◄ Previous</button>
-          <span id="page-info" class="page-info">Page 1 of 1</span>
-          <button id="next-page" class="btn btn-sm btn-secondary">Next ►</button>
         </div>
       </section>
     </div>

@@ -101,27 +101,17 @@ function update4HourTimer() {
   const fourHour = timerStatus.fourHour;
   const content = document.getElementById('four-hour-content');
   
-  if (!fourHour.enabled) {
+  if (!fourHour.active) {
     content.classList.add('disabled');
-    document.getElementById('start-4h').textContent = 'Start';
+    document.getElementById('4h-tokens').textContent = '0 / ~50,000';
+    document.getElementById('4h-remaining').textContent = 'Inactive';
     return;
   }
   
   content.classList.remove('disabled');
-  document.getElementById('start-4h').textContent = 'Stop';
-  
-  // Start time
-  if (fourHour.startTime) {
-    document.getElementById('4h-start').textContent = Utils.formatTime(fourHour.startTime);
-  }
-  
-  // End time
-  if (fourHour.endTime) {
-    document.getElementById('4h-end').textContent = Utils.formatTime(fourHour.endTime);
-  }
   
   // Tokens
-  const tokensText = `${Utils.formatNumber(fourHour.tokens)} / ~${Utils.formatNumber(fourHour.limit)}`;
+  const tokensText = `${Utils.formatLargeNumber(fourHour.tokens)} / ~${Utils.formatLargeNumber(fourHour.limit)}`;
   document.getElementById('4h-tokens').textContent = tokensText;
   
   // Progress bar
@@ -137,10 +127,13 @@ function update4HourTimer() {
     progressBar.classList.add('warning');
   }
   
-  // Remaining time
-  if (fourHour.endTime) {
-    const remaining = Utils.formatTimeRemaining(fourHour.endTime);
-    document.getElementById('4h-remaining').textContent = remaining;
+  // Remaining time - format: "Resets in 3 hr 34 min"
+  if (fourHour.timeRemaining > 0) {
+    const hours = Math.floor(fourHour.timeRemaining / (60 * 60 * 1000));
+    const minutes = Math.floor((fourHour.timeRemaining % (60 * 60 * 1000)) / (60 * 1000));
+    document.getElementById('4h-remaining').textContent = `Resets in ${hours} hr ${minutes} min`;
+  } else {
+    document.getElementById('4h-remaining').textContent = 'Expired';
   }
 }
 
@@ -151,21 +144,17 @@ function updateWeeklyTimer() {
   const weekly = timerStatus.weekly;
   const content = document.getElementById('weekly-content');
   
-  if (!weekly.enabled) {
+  if (!weekly.active) {
     content.classList.add('disabled');
-    document.getElementById('start-weekly').textContent = 'Start';
+    document.getElementById('week-tokens').textContent = '0 / ~200,000';
+    document.getElementById('week-reset').textContent = 'Inactive';
     return;
   }
   
   content.classList.remove('disabled');
-  document.getElementById('start-weekly').textContent = 'Stop';
-  
-  // Week start
-  const weekStartText = `${weekly.weekStartDay} ${weekly.weekStartTime}`;
-  document.getElementById('week-start').textContent = weekStartText;
   
   // Tokens
-  const tokensText = `${Utils.formatNumber(weekly.tokens)} / ~${Utils.formatNumber(weekly.limit)}`;
+  const tokensText = `${Utils.formatLargeNumber(weekly.tokens)} / ~${Utils.formatLargeNumber(weekly.limit)}`;
   document.getElementById('week-tokens').textContent = tokensText;
   
   // Progress bar
@@ -181,12 +170,14 @@ function updateWeeklyTimer() {
     progressBar.classList.add('warning');
   }
   
-  // Reset time
-  if (weekly.currentWeekStart) {
-    const weekStart = new Date(weekly.currentWeekStart);
-    weekStart.setDate(weekStart.getDate() + 7);
-    const remaining = Utils.formatTimeRemaining(weekStart.toISOString());
-    document.getElementById('week-reset').textContent = remaining;
+  // Reset time - format: "Resets Thu 9:59 AM"
+  if (weekly.endTime) {
+    const endDate = new Date(weekly.endTime);
+    const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][endDate.getDay()];
+    const timeStr = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    document.getElementById('week-reset').textContent = `Resets ${dayName} ${timeStr}`;
+  } else {
+    document.getElementById('week-reset').textContent = 'No end time set';
   }
 }
 

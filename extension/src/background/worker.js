@@ -91,6 +91,12 @@ async function handleMessage(message, sender) {
     case 'GET_ALL_CHATS':
       return await handleGetAllChats();
     
+    case 'SET_4H_TIMER_END':
+      return await handleSet4HTimerEnd(data);
+    
+    case 'SET_WEEKLY_TIMER_END':
+      return await handleSetWeeklyTimerEnd(data);
+    
     case 'IMPORT_DATA':
       return await handleImportData(data);
     
@@ -383,7 +389,7 @@ async function handleToggleOverlay(data) {
  */
 async function handleGetAllChats() {
   const chats = await StorageManager.getChats();
-  return chats;
+  return { success: true, data: chats };
 }
 
 /**
@@ -401,6 +407,24 @@ async function handleImportData(data) {
   console.log('Data imported successfully');
   
   return { success: true };
+}
+
+/**
+ * Handle set 4-hour timer end
+ */
+async function handleSet4HTimerEnd(data) {
+  const { durationMs } = data;
+  const status = await TimerManager.set4HourTimerEnd(durationMs);
+  return { success: true, data: status };
+}
+
+/**
+ * Handle set weekly timer end
+ */
+async function handleSetWeeklyTimerEnd(data) {
+  const { endTimestamp } = data;
+  const status = await TimerManager.setWeeklyTimerEnd(endTimestamp);
+  return { success: true, data: status };
 }
 
 console.log('Claude Token Tracker Service Worker ready');
