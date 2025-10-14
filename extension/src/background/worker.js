@@ -389,7 +389,7 @@ async function handleToggleOverlay(data) {
  */
 async function handleGetAllChats() {
   const chats = await StorageManager.getChats();
-  return { success: true, data: chats };
+  return chats;  // Don't wrap in { success, data } - that's done by sendResponse
 }
 
 /**

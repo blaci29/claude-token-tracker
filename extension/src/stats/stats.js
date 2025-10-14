@@ -16,6 +16,12 @@ async function init() {
   setupEventListeners();
   renderAll();
   
+  // Hide loading state
+  const loadingState = document.getElementById('loading-state');
+  if (loadingState) {
+    loadingState.style.display = 'none';
+  }
+  
   console.log('✅ Stats page ready');
 }
 
@@ -29,9 +35,15 @@ async function loadData() {
       type: 'GET_ALL_CHATS'
     });
     
+    console.log('📦 Raw chats response:', chatsResponse);
+    
     if (chatsResponse?.success) {
       allChats = chatsResponse.data || {};
-      console.log('📦 Loaded chats:', Object.keys(allChats).length, allChats);
+      console.log('   ✅ Loaded chats:', Object.keys(allChats).length);
+      console.log('   📝 Chat IDs:', Object.keys(allChats));
+      console.log('   💾 Full chat data:', allChats);
+    } else {
+      console.error('❌ Failed to load chats:', chatsResponse);
     }
     
     // Get timer status
@@ -347,7 +359,8 @@ function renderConversations() {
       const chatId = item.dataset.chatId;
       const chat = allChats[chatId];
       if (chat?.url) {
-        window.open(chat.url, '_blank');
+        // Navigate to chat in same tab
+        window.location.href = chat.url;
       }
     });
   });

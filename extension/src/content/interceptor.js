@@ -179,18 +179,26 @@ const Interceptor = {
       const titleElement = document.querySelector('title');
       if (titleElement) {
         const fullTitle = titleElement.textContent?.trim() || '';
+        console.log('🔍 Full page title:', fullTitle);
+        
         // Claude.ai format: "Chat Title | Claude"
         const parts = fullTitle.split('|');
+        console.log('🔍 Title parts:', parts);
+        
         if (parts.length > 0) {
           const title = parts[0].trim();
+          console.log('🔍 Extracted title:', title);
+          
           if (title && title.length > 0 && title !== 'Claude') {
+            console.log('✅ Using title:', title);
             return title;
           }
         }
       }
     } catch(e) {
-      // Ignore
+      console.error('❌ Error detecting title:', e);
     }
+    console.log('⚠️ Returning default: Untitled Chat');
     return 'Untitled Chat';
   }
 };
