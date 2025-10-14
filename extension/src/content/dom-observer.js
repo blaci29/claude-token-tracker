@@ -120,45 +120,25 @@ const DOMObserver = {
    * Handle title change
    */
   onTitleChange: Utils.debounce(function() {
-    // Get current title
-    const title = DOMObserver.detectChatTitle();
-    
     // Update overlay if active
     if (window.OverlayManager && window.OverlayManager.isVisible()) {
       window.OverlayManager.updateChatTitle();
     }
-    
-    // Notify background to update stored title
-    if (title && title !== 'Untitled Chat' && DOMObserver.currentChatId) {
-      chrome.runtime.sendMessage({
-        type: CONSTANTS.MSG_TYPES.UPDATE_CHAT_TITLE,
-        data: {
-          chatId: DOMObserver.currentChatId,
-          title: title
-        }
-      }).catch(() => {
-        // Silently fail
-      });
-    }
   }, 500),
   
   /**
-   * Detect chat title from DOM
+   * Detect chat title from <title> tag
    */
   detectChatTitle() {
     try {
-      const selectors = [
-        'h1.font-tiempos',
-        '[data-testid="chat-title"]',
-        'h1',
-        '.chat-title'
-      ];
-      
-      for (const selector of selectors) {
-        const element = document.querySelector(selector);
-        if (element) {
-          const title = element.textContent?.trim();
-          if (title && title.length > 0 && title.length < 200) {
+      const titleElement = document.querySelector('title');
+      if (titleElement) {
+        const fullTitle = titleElement.textContent?.trim() || '';
+        // Claude.ai format: "Chat Title | Claude"
+        const parts = fullTitle.split('|');
+        if (parts.length > 0) {
+          const title = parts[0].trim();
+          if (title && title.length > 0 && title !== 'Claude') {
             return title;
           }
         }

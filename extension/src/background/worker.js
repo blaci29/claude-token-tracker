@@ -103,9 +103,6 @@ async function handleMessage(message, sender) {
       await chrome.tabs.create({ url: statsUrl });
       return { success: true };
     
-    case CONSTANTS.MSG_TYPES.UPDATE_CHAT_TITLE:
-      return await handleUpdateChatTitle(data);
-    
     default:
       throw new Error(`Unknown message type: ${type}`);
   }
@@ -404,27 +401,6 @@ async function handleImportData(data) {
   console.log('Data imported successfully');
   
   return { success: true };
-}
-
-/**
- * Handle update chat title
- */
-async function handleUpdateChatTitle(data) {
-  const { chatId, title } = data;
-  
-  if (!chatId || !title) {
-    return { updated: false };
-  }
-  
-  const chat = await StorageManager.getChat(chatId);
-  
-  if (chat && title !== chat.title) {
-    chat.title = title;
-    await StorageManager.saveChat(chatId, chat);
-    return { updated: true, title };
-  }
-  
-  return { updated: false };
 }
 
 console.log('Claude Token Tracker Service Worker ready');
