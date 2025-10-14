@@ -86,9 +86,13 @@ const DOMObserver = {
    * Handle chat change
    */
   async onChatChange(chatId) {
-    // Notify overlay to update
-    if (window.OverlayManager) {
-      window.OverlayManager.onChatChange(chatId);
+    try {
+      // Notify overlay to update
+      if (window.OverlayManager) {
+        window.OverlayManager.onChatChange(chatId);
+      }
+    } catch(e) {
+      // Ignore errors (extension context invalidated after reload)
     }
   },
   
@@ -120,9 +124,13 @@ const DOMObserver = {
    * Handle title change
    */
   onTitleChange: Utils.debounce(function() {
-    // Update overlay if active
-    if (window.OverlayManager && window.OverlayManager.isVisible()) {
-      window.OverlayManager.updateChatTitle();
+    try {
+      // Update overlay if active
+      if (window.OverlayManager && window.OverlayManager.isVisible()) {
+        window.OverlayManager.updateChatTitle();
+      }
+    } catch(e) {
+      // Ignore errors (extension context invalidated after reload)
     }
   }, 500),
   
