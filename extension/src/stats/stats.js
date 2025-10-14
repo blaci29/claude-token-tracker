@@ -348,21 +348,30 @@ function renderConversations() {
   
   chatList.innerHTML = chatsArray.map(chat => {
     const totalTokens = chat.stats?.totalTokens || 0;
+    const totalChars = chat.stats?.totalChars || 0;
     const roundCount = chat.rounds?.length || 0;
     
     return `
-      <div class="chat-item" data-chat-id="${chat.id}" onclick="showChatDetail('${chat.id}')">
+      <div class="chat-item" data-chat-id="${chat.id}">
         <div class="chat-item-header">
           <h3 class="chat-item-title">${escapeHtml(chat.title)}</h3>
           <span class="chat-item-date">${formatDate(chat.lastActive)}</span>
         </div>
         <div class="chat-item-stats">
           <span class="stat-badge">🔄 ${roundCount} rounds</span>
-          <span class="stat-badge">🎯 ${Utils.formatLargeNumber(totalTokens)} tokens</span>
+          <span class="stat-badge">🎯 ${Utils.formatLargeNumber(totalChars)} (~${Utils.formatLargeNumber(totalTokens)})</span>
         </div>
       </div>
     `;
   }).join('');
+  
+  // Add click event listeners (CSP safe - no inline onclick)
+  document.querySelectorAll('.chat-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const chatId = item.getAttribute('data-chat-id');
+      showChatDetail(chatId);
+    });
+  });
 }
 
 /**
