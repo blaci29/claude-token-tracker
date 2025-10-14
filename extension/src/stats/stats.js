@@ -114,6 +114,28 @@ function setupEventListeners() {
   
   // Export button
   document.getElementById('export-btn').addEventListener('click', exportData);
+  
+  // Search chats
+  const searchInput = document.getElementById('search-chats');
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      renderConversations();
+    });
+  }
+  
+  // Sort chats
+  const sortSelect = document.getElementById('sort-chats');
+  if (sortSelect) {
+    sortSelect.addEventListener('change', () => {
+      renderConversations();
+    });
+  }
+  
+  // Delete old chats button
+  const deleteOldBtn = document.getElementById('delete-old-chats');
+  if (deleteOldBtn) {
+    deleteOldBtn.addEventListener('click', deleteOldChats);
+  }
 }
 
 /**
@@ -336,13 +358,34 @@ function getAllRoundIds() {
  */
 function renderConversations() {
   const chatList = document.getElementById('chat-list');
+  const searchQuery = document.getElementById('search-chats')?.value.toLowerCase() || '';
+  const sortBy = document.getElementById('sort-chats')?.value || 'recent';
   
-  const chatsArray = Object.values(allChats).sort((a, b) => {
-    return new Date(b.lastActive) - new Date(a.lastActive);
+  let chatsArray = Object.values(allChats);
+  
+  // Filter by search query
+  if (searchQuery) {
+    chatsArray = chatsArray.filter(chat => 
+      chat.title.toLowerCase().includes(searchQuery) ||
+      chat.url.toLowerCase().includes(searchQuery)
+    );
+  }
+  
+  // Sort
+  chatsArray.sort((a, b) => {
+    switch (sortBy) {
+      case 'tokens':
+        return (b.stats?.totalTokens || 0) - (a.stats?.totalTokens || 0);
+      case 'rounds':
+        return (b.rounds?.length || 0) - (a.rounds?.length || 0);
+      case 'recent':
+      default:
+        return new Date(b.lastActive) - new Date(a.lastActive);
+    }
   });
   
   if (chatsArray.length === 0) {
-    chatList.innerHTML = '<div class="empty-message">No conversations yet</div>';
+    chatList.innerHTML = '<div class="empty-message">No conversations found</div>';
     return;
   }
   
@@ -388,6 +431,55 @@ function exportData() {
   link.click();
   
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Delete chats older than 30 days
+ */
+async function deleteOldChats() {
+  const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+  const chatsToDelete = [];
+  
+  // Find old chats
+  for (const [chatId, chat] of Object.entries(allChats)) {
+    const lastActive = new Date(chat.lastActive).getTime();
+    if (lastActive < thirtyDaysAgo) {
+      chatsToDelete.push({ id: chatId, title: chat.title });
+    }
+  }
+  
+  if (chatsToDelete.length === 0) {
+    alert('No chats older than 30 days found! ✅');
+    return;
+  }
+  
+  // Confirm deletion
+  const message = `Delete ${chatsToDelete.length} chat(s) older than 30 days?\n\n` +
+    chatsToDelete.slice(0, 5).map(c => `• ${c.title}`).join('\n') +
+    (chatsToDelete.length > 5 ? `\n... and ${chatsToDelete.length - 5} more` : '');
+  
+  if (!confirm(message)) {
+    return;
+  }
+  
+  // Delete chats one by one
+  for (const chat of chatsToDelete) {
+    try {
+      await chrome.runtime.sendMessage({
+        type: 'DELETE_CHAT',
+        data: { chatId: chat.id }
+      });
+      console.log(`🗑️ Deleted chat: ${chat.title}`);
+    } catch (error) {
+      console.error(`❌ Error deleting chat ${chat.id}:`, error);
+    }
+  }
+  
+  // Reload data and refresh UI
+  await loadData();
+  renderAll();
+  
+  alert(`✅ Deleted ${chatsToDelete.length} old chat(s)!`);
 }
 
 /**
