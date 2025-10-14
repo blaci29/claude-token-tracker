@@ -67,15 +67,17 @@ export const TimerManager = {
     // Calculate tokens from roundIds
     const tokens = await this._calculateTokensFromRoundIds(timer.roundIds || []);
     
-    const limit = timerType === 'fourHour' ? CONSTANTS.TIMER_LIMITS.FOUR_HOUR : CONSTANTS.TIMER_LIMITS.WEEKLY;
+    // KIKOMMENTEZVE - Nincs limit tracking, csak mérés
+    // const limit = timerType === 'fourHour' ? CONSTANTS.TIMER_LIMITS.FOUR_HOUR : CONSTANTS.TIMER_LIMITS.WEEKLY;
     const timeRemaining = Math.max(0, timer.endTime - now);
     const expired = now > timer.endTime;
     
     return {
       active: true,
       tokens,
-      limit,
-      percentage: (tokens / limit) * 100,
+      // KIKOMMENTEZVE - Nincs limit tracking
+      // limit,
+      // percentage: (tokens / limit) * 100,
       timeRemaining,
       expired,
       startTime: timer.startTime,
@@ -126,13 +128,16 @@ export const TimerManager = {
     await StorageManager.saveTimers(timers);
     console.log(`📊 Round ${roundId} added to timers (${tokens} tokens)`);
     
+    // KIKOMMENTEZVE - Nincs limit warning/notification
     // Check for limit warnings
-    await this._checkLimits(timers);
+    // await this._checkLimits(timers);
   },
 
   /**
+   * KIKOMMENTEZVE - Nincs limit checking, csak mérünk!
    * Check if limits are reached
    */
+  /*
   async _checkLimits(timers) {
     // Calculate tokens from roundIds
     const fourHourTokens = await this._calculateTokensFromRoundIds(timers.fourHour.roundIds || []);
@@ -159,6 +164,7 @@ export const TimerManager = {
       });
     }
   },
+  */
 
   /**
    * Set 4-hour timer end time (vésztartalék)

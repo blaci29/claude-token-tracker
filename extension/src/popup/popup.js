@@ -103,29 +103,32 @@ function update4HourTimer() {
   
   if (!fourHour.active) {
     content.classList.add('disabled');
-    document.getElementById('4h-tokens').textContent = '0 / ~50,000';
+    // KIKOMMENTEZVE - Nincs limit display
+    // document.getElementById('4h-tokens').textContent = '0 / ~50,000';
+    document.getElementById('4h-tokens').textContent = '0';
     document.getElementById('4h-remaining').textContent = 'Inactive';
     return;
   }
   
   content.classList.remove('disabled');
   
-  // Tokens
-  const tokensText = `${Utils.formatLargeNumber(fourHour.tokens)} / ~${Utils.formatLargeNumber(fourHour.limit)}`;
+  // Tokens - KIKOMMENTEZVE limit display
+  // const tokensText = `${Utils.formatLargeNumber(fourHour.tokens)} / ~${Utils.formatLargeNumber(fourHour.limit)}`;
+  const tokensText = Utils.formatLargeNumber(fourHour.tokens);
   document.getElementById('4h-tokens').textContent = tokensText;
   
-  // Progress bar
-  const percentage = parseFloat(fourHour.percentage);
-  const progressBar = document.getElementById('4h-progress');
-  progressBar.style.width = `${Math.min(percentage, 100)}%`;
+  // Progress bar - KIKOMMENTEZVE, nincs limit tracking
+  // const percentage = parseFloat(fourHour.percentage);
+  // const progressBar = document.getElementById('4h-progress');
+  // progressBar.style.width = `${Math.min(percentage, 100)}%`;
   
-  // Color based on percentage
-  progressBar.classList.remove('warning', 'danger');
-  if (percentage >= 100) {
-    progressBar.classList.add('danger');
-  } else if (percentage >= 90) {
-    progressBar.classList.add('warning');
-  }
+  // Color based on percentage - KIKOMMENTEZVE
+  // progressBar.classList.remove('warning', 'danger');
+  // if (percentage >= 100) {
+  //   progressBar.classList.add('danger');
+  // } else if (percentage >= 90) {
+  //   progressBar.classList.add('warning');
+  // }
   
   // Remaining time - format: "Resets in 3 hr 34 min"
   if (fourHour.timeRemaining > 0) {
@@ -146,29 +149,32 @@ function updateWeeklyTimer() {
   
   if (!weekly.active) {
     content.classList.add('disabled');
-    document.getElementById('week-tokens').textContent = '0 / ~200,000';
+    // KIKOMMENTEZVE - Nincs limit display
+    // document.getElementById('week-tokens').textContent = '0 / ~200,000';
+    document.getElementById('week-tokens').textContent = '0';
     document.getElementById('week-reset').textContent = 'Inactive';
     return;
   }
   
   content.classList.remove('disabled');
   
-  // Tokens
-  const tokensText = `${Utils.formatLargeNumber(weekly.tokens)} / ~${Utils.formatLargeNumber(weekly.limit)}`;
+  // Tokens - KIKOMMENTEZVE limit display
+  // const tokensText = `${Utils.formatLargeNumber(weekly.tokens)} / ~${Utils.formatLargeNumber(weekly.limit)}`;
+  const tokensText = Utils.formatLargeNumber(weekly.tokens);
   document.getElementById('week-tokens').textContent = tokensText;
   
-  // Progress bar
-  const percentage = parseFloat(weekly.percentage);
-  const progressBar = document.getElementById('week-progress');
-  progressBar.style.width = `${Math.min(percentage, 100)}%`;
+  // Progress bar - KIKOMMENTEZVE, nincs limit tracking
+  // const percentage = parseFloat(weekly.percentage);
+  // const progressBar = document.getElementById('week-progress');
+  // progressBar.style.width = `${Math.min(percentage, 100)}%`;
   
-  // Color based on percentage
-  progressBar.classList.remove('warning', 'danger');
-  if (percentage >= 100) {
-    progressBar.classList.add('danger');
-  } else if (percentage >= 90) {
-    progressBar.classList.add('warning');
-  }
+  // Color based on percentage - KIKOMMENTEZVE
+  // progressBar.classList.remove('warning', 'danger');
+  // if (percentage >= 100) {
+  //   progressBar.classList.add('danger');
+  // } else if (percentage >= 90) {
+  //   progressBar.classList.add('warning');
+  // }
   
   // Reset time - format: "Resets Thu 9:59 AM"
   if (weekly.endTime) {

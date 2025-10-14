@@ -83,6 +83,7 @@ const CONSTANTS = {
   SAVE_DELAY_MS: 500,
   DAYS: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
   
+  // Ez lehet már törölhető?! majd a végén ellenőrizni.
   TIMER_LIMITS: {
     FOUR_HOUR: 50000,
     WEEKLY: 200000

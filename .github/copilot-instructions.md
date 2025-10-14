@@ -2,6 +2,8 @@
 
 ## Core Functionality
 
+Always keep the commented sections; we will remove them separately.
+
 ### 1. Floating Overlay Widget
 - **Purpose**: Display real-time statistics for the current chat and round
 - **Location**: Draggable overlay on Claude.ai chat pages
