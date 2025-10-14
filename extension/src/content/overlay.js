@@ -37,6 +37,14 @@ const OverlayManager = {
         this.updateData(message.data);
       }
     });
+    
+    // Refresh overlay when tab becomes visible
+    document.addEventListener('visibilitychange', async () => {
+      if (!document.hidden && this.overlay && this.overlay.style.display !== 'none') {
+        // Tab became visible - refresh overlay data
+        await this.refreshData();
+      }
+    });
   },
   
   /**
@@ -275,6 +283,15 @@ const OverlayManager = {
       this.renderError();
     } finally {
       this.isLoading = false;
+    }
+  },
+  
+  /**
+   * Refresh overlay data (called when tab becomes visible)
+   */
+  async refreshData() {
+    if (this.currentChatId) {
+      await this.loadChatData(this.currentChatId);
     }
   },
   

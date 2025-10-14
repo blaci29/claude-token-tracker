@@ -219,6 +219,11 @@ async function handleRoundCompleted(data) {
           chrome.tabs.sendMessage(tabs[0].id, {
             type: CONSTANTS.MSG_TYPES.UPDATE_OVERLAY,
             data: { chat, lastRound: estimatedRound }
+          }, (response) => {
+            // Check for errors but don't log them (content script might not exist)
+            if (chrome.runtime.lastError) {
+              // Silently ignore - this is normal when content script is not loaded
+            }
           });
         }
       });
