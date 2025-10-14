@@ -60,15 +60,6 @@ function populateForm() {
   document.getElementById('ratio-assistant').value = overrides.assistant || '';
   document.getElementById('ratio-tool').value = overrides.toolContent || '';
   
-  // Timer settings
-  document.getElementById('4h-threshold').value = (currentSettings.warningThresholds.fourHour * 100).toFixed(0);
-  document.getElementById('4h-limit').value = currentSettings.estimatedLimits.fourHour;
-  
-  document.getElementById('week-start-day').value = currentSettings.weekStartDay;
-  document.getElementById('week-start-time').value = currentSettings.weekStartTime;
-  document.getElementById('week-threshold').value = (currentSettings.warningThresholds.weekly * 100).toFixed(0);
-  document.getElementById('week-limit').value = currentSettings.estimatedLimits.weekly;
-  
   // Overlay settings
   document.getElementById('overlay-default').checked = currentSettings.overlayEnabled;
   document.getElementById('overlay-remember-position').checked = true; // Always enabled in v1.0
@@ -98,22 +89,6 @@ function collectSettings() {
         toolContent: parseFloat(document.getElementById('ratio-tool').value) || null
       }
     },
-    
-    // Warning thresholds
-    warningThresholds: {
-      fourHour: parseInt(document.getElementById('4h-threshold').value) / 100,
-      weekly: parseInt(document.getElementById('week-threshold').value) / 100
-    },
-    
-    // Estimated limits
-    estimatedLimits: {
-      fourHour: parseInt(document.getElementById('4h-limit').value),
-      weekly: parseInt(document.getElementById('week-limit').value)
-    },
-    
-    // Week start
-    weekStartDay: document.getElementById('week-start-day').value,
-    weekStartTime: document.getElementById('week-start-time').value,
     
     // Overlay
     overlayEnabled: document.getElementById('overlay-default').checked,

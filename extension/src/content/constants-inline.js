@@ -23,8 +23,8 @@ const CONSTANTS = {
     debugMode: false,
     overlayEnabled: false,
     overlayPosition: { x: 20, y: 100 },
-    warningThresholds: { fourHour: 0.9, weekly: 0.9 },
-    estimatedLimits: { fourHour: 50000, weekly: 200000 },
+    warningThresholds: { fourHour: 0.9, weekly: 0.9 }, // ez majd lehet nem lesz használva
+    estimatedLimits: { fourHour: 50000, weekly: 200000 },  // ez majd lehet nem lesz használva
     weekStartDay: 'Monday',
     weekStartTime: '00:00'
   },
