@@ -320,6 +320,7 @@ function renderChatDetail(chatId) {
   
   // Summary
   const summaryContainer = document.getElementById('detail-summary');
+  const byType = chat.stats?.byType || {};
   summaryContainer.innerHTML = `
     <div class="summary-stat">
       <div class="summary-stat-label">Total Rounds</div>
@@ -331,23 +332,23 @@ function renderChatDetail(chatId) {
     </div>
     <div class="summary-stat">
       <div class="summary-stat-label">👤 User</div>
-      <div class="summary-stat-value">${Utils.formatLargeNumber(chat.stats?.userTokens || 0)}</div>
+      <div class="summary-stat-value">${Utils.formatLargeNumber(byType.user?.tokens || 0)}</div>
     </div>
     <div class="summary-stat">
       <div class="summary-stat-label">📄 Docs</div>
-      <div class="summary-stat-value">${Utils.formatLargeNumber(chat.stats?.docTokens || 0)}</div>
+      <div class="summary-stat-value">${Utils.formatLargeNumber(byType.documents?.tokens || 0)}</div>
     </div>
     <div class="summary-stat">
       <div class="summary-stat-label">🧠 Thinking</div>
-      <div class="summary-stat-value">${Utils.formatLargeNumber(chat.stats?.thinkingTokens || 0)}</div>
+      <div class="summary-stat-value">${Utils.formatLargeNumber(byType.thinking?.tokens || 0)}</div>
     </div>
     <div class="summary-stat">
       <div class="summary-stat-label">🤖 Assistant</div>
-      <div class="summary-stat-value">${Utils.formatLargeNumber(chat.stats?.assistantTokens || 0)}</div>
+      <div class="summary-stat-value">${Utils.formatLargeNumber(byType.assistant?.tokens || 0)}</div>
     </div>
     <div class="summary-stat">
       <div class="summary-stat-label">🔧 Tools</div>
-      <div class="summary-stat-value">${Utils.formatLargeNumber(chat.stats?.toolTokens || 0)}</div>
+      <div class="summary-stat-value">${Utils.formatLargeNumber(byType.toolContent?.tokens || 0)}</div>
     </div>
   `;
   

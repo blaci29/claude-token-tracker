@@ -318,6 +318,12 @@ const OverlayManager = {
                 <div class="ctt-stat-label">👤 User</div>
                 <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.user.chars)} (~${Utils.formatLargeNumber(lastRound.user.tokens)})</div>
               </div>
+              ${lastRound.documents && lastRound.documents.chars > 0 ? `
+                <div class="ctt-stat-row">
+                  <div class="ctt-stat-label">📄 Docs</div>
+                  <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.documents.chars)} (~${Utils.formatLargeNumber(lastRound.documents.tokens)})</div>
+                </div>
+              ` : ''}
               ${lastRound.thinking.chars > 0 ? `
                 <div class="ctt-stat-row">
                   <div class="ctt-stat-label">🧠 Think</div>
