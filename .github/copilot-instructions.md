@@ -16,28 +16,28 @@
 
 #### Section Order (Top to Bottom):
 1. **4-Hour Session**
-   - Total tokens used in current 4-hour window
-   - Character count
-   - Progress bar (X% of 50,000 limit)
-   - Token breakdown by type (User, Documents, Thinking, Assistant, Tools)
+   - Total chars and tokens used in current 4-hour window
+   - Character count - Token count
+   - Progress bar (time limit)
+   - Char - Token breakdown by type (User, Documents, Thinking, Assistant, Tools)
    - **Total rounds count in this session**
    - "Set end time" input (vésztartalék): `___ hr ___ min`
    - Reset timer display: "Resets in 3 hr 34 min"
 
 2. **Weekly Session**
-   - Total tokens used in current weekly window
-   - Character count
-   - Progress bar (X% of 200,000 limit)
-   - Token breakdown by type (User, Documents, Thinking, Assistant, Tools)
+   - Total chars and tokens used in current weekly window
+   - Character count - Token count
+   - Progress bar (time limit)
+   - Char - Token breakdown by type (User, Documents, Thinking, Assistant, Tools)
    - **Opus tokens (separate line, but included in total)**
    - **Total rounds count in this session**
    - "Set end time" input (vésztartalék): Day picker + time picker
    - Reset timer display: "Resets Thu 9:59 AM"
 
 3. **All Time Statistics**
-   - Total tokens across all conversations
-   - Character count
-   - Token breakdown by type
+   - Total chars and tokens across all conversations
+   - Character count - Token count
+   - Char - Token breakdown by type
    - Total rounds count
    - No progress bar (no limit)
 
@@ -47,7 +47,7 @@
      - Chat title (NOT "Untitled Chat" - extract from `<title>` tag)
      - Last active time
      - Round count
-     - Total tokens
+     - Total chars and tokens
    - **Click behavior**: Navigate to chat detail view showing:
      - Chat metadata
      - All rounds with token/character breakdown

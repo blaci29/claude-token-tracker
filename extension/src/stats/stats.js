@@ -184,10 +184,18 @@ function renderTokenBreakdown(roundIds, section) {
   const percentage = section === 'allTime' ? 100 : 
     (stats.total / (section === 'fourHour' ? 50000 : 200000)) * 100;
   
+  // Calculate total Opus tokens (all Opus versions combined)
+  let opusTokens = 0;
+  for (const modelName in stats.byModel) {
+    if (modelName.toLowerCase().includes('opus')) {
+      opusTokens += stats.byModel[modelName];
+    }
+  }
+  
   const opusSection = section === 'weekly' ? `
     <div class="stat-row opus-row">
       <span class="stat-label">Opus (separate)</span>
-      <span class="stat-value">${Utils.formatLargeNumber(stats.byModel?.opus || 0)}</span>
+      <span class="stat-value">${Utils.formatLargeNumber(opusTokens)}</span>
     </div>
   ` : '';
   
