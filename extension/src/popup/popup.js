@@ -87,6 +87,8 @@ function updateTrackingToggle() {
 function updateTimerUI() {
   if (!timerStatus) return;
   
+  console.log('🔄 Updating timer UI with:', timerStatus);
+  
   // 4-hour timer
   update4HourTimer();
   
@@ -99,6 +101,8 @@ function updateTimerUI() {
  */
 function update4HourTimer() {
   const fourHour = timerStatus.fourHour;
+  
+  console.log('⏱️ 4-hour timer data:', fourHour);
   
   // End time
   const endEl = document.getElementById('4h-end');
@@ -118,29 +122,36 @@ function update4HourTimer() {
   document.getElementById('4h-chars').textContent = `${Utils.formatLargeNumber(fourHour.chars || 0)} chars`;
   document.getElementById('4h-tokens').textContent = `${Utils.formatLargeNumber(fourHour.tokens || 0)} tokens`;
   
-  // Progress bar
-  const percentage = Math.min(parseFloat(fourHour.percentage || 0), 100);
+  // Progress bar - time-based (how much time has elapsed)
+  const totalDuration = fourHour.endTime - fourHour.startTime;
+  const elapsed = Date.now() - fourHour.startTime;
+  const percentage = Math.min(Math.max((elapsed / totalDuration) * 100, 0), 100);
+  
   const progressBar = document.getElementById('4h-progress');
   progressBar.style.width = `${percentage}%`;
   
   // Color based on percentage
   progressBar.classList.remove('warning', 'danger');
-  if (percentage >= 100) {
+  if (percentage >= 90) {
     progressBar.classList.add('danger');
-  } else if (percentage >= 90) {
+  } else if (percentage >= 75) {
     progressBar.classList.add('warning');
   }
   
   // Update button states
   const startBtn = document.getElementById('start-4h');
   if (fourHour.active) {
-    startBtn.textContent = 'Active';
-    startBtn.classList.add('btn-ghost');
+    startBtn.textContent = 'Running...';
+    startBtn.disabled = true;
     startBtn.classList.remove('btn-primary');
+    startBtn.classList.add('btn-ghost');
+    startBtn.style.cursor = 'not-allowed';
   } else {
     startBtn.textContent = 'Start';
+    startBtn.disabled = false;
     startBtn.classList.add('btn-primary');
     startBtn.classList.remove('btn-ghost');
+    startBtn.style.cursor = 'pointer';
   }
 }
 
@@ -173,29 +184,36 @@ function updateWeeklyTimer() {
   const opusMessages = Math.round((weekly.tokens || 0) / 400);
   document.getElementById('opus-count').textContent = `~${opusMessages} / 500 messages`;
   
-  // Progress bar
-  const percentage = Math.min(parseFloat(weekly.percentage || 0), 100);
+  // Progress bar - time-based (how much time has elapsed)
+  const totalDuration = weekly.endTime - weekly.startTime;
+  const elapsed = Date.now() - weekly.startTime;
+  const percentage = Math.min(Math.max((elapsed / totalDuration) * 100, 0), 100);
+  
   const progressBar = document.getElementById('week-progress');
   progressBar.style.width = `${percentage}%`;
   
   // Color based on percentage
   progressBar.classList.remove('warning', 'danger');
-  if (percentage >= 100) {
+  if (percentage >= 90) {
     progressBar.classList.add('danger');
-  } else if (percentage >= 90) {
+  } else if (percentage >= 75) {
     progressBar.classList.add('warning');
   }
   
   // Update button states
   const startBtn = document.getElementById('start-weekly');
   if (weekly.active) {
-    startBtn.textContent = 'Active';
-    startBtn.classList.add('btn-ghost');
+    startBtn.textContent = 'Running...';
+    startBtn.disabled = true;
     startBtn.classList.remove('btn-primary');
+    startBtn.classList.add('btn-ghost');
+    startBtn.style.cursor = 'not-allowed';
   } else {
     startBtn.textContent = 'Start';
+    startBtn.disabled = false;
     startBtn.classList.add('btn-primary');
     startBtn.classList.remove('btn-ghost');
+    startBtn.style.cursor = 'pointer';
   }
 }
 
@@ -234,22 +252,6 @@ function setupEventListeners() {
     }
   });
   
-  // 4-hour timer reset
-  document.getElementById('reset-4h').addEventListener('click', async () => {
-    if (!confirm('Reset 4-hour timer? This will clear all data.')) return;
-    
-    try {
-      await chrome.runtime.sendMessage({
-        type: CONSTANTS.MSG_TYPES.RESET_TIMER,
-        data: { timerType: CONSTANTS.TIMER_TYPES.FOUR_HOUR }
-      });
-      
-      await loadTimerStatus();
-    } catch (error) {
-      console.error('Error resetting 4h timer:', error);
-    }
-  });
-  
   // Weekly timer start
   document.getElementById('start-weekly').addEventListener('click', async () => {
     try {
@@ -261,22 +263,6 @@ function setupEventListeners() {
       await loadTimerStatus();
     } catch (error) {
       console.error('Error starting weekly timer:', error);
-    }
-  });
-  
-  // Weekly timer reset
-  document.getElementById('reset-weekly').addEventListener('click', async () => {
-    if (!confirm('Reset weekly timer? This will clear all data.')) return;
-    
-    try {
-      await chrome.runtime.sendMessage({
-        type: CONSTANTS.MSG_TYPES.RESET_TIMER,
-        data: { timerType: CONSTANTS.TIMER_TYPES.WEEKLY }
-      });
-      
-      await loadTimerStatus();
-    } catch (error) {
-      console.error('Error resetting weekly timer:', error);
     }
   });
   

@@ -42,27 +42,53 @@ export const TimerManager = {
    * ⚠️ SKIPS rounds with errors
    */
   async _calculateTokensFromRoundIds(roundIds) {
-    if (!roundIds || roundIds.length === 0) return 0;
+    if (!roundIds || roundIds.length === 0) {
+      return { tokens: 0, chars: 0 };
+    }
     
     const chats = await StorageManager.getChats();
     let totalTokens = 0;
+    let totalChars = 0;
+    
+    console.log('📊 Calculating from roundIds:', roundIds);
     
     for (const roundId of roundIds) {
       const [chatId, roundNumber] = roundId.split(':');
       const chat = chats[chatId];
-      if (chat && chat.rounds && chat.rounds[roundNumber]) {
-        const round = chat.rounds[roundNumber];
-        
-        // Skip error rounds
-        if (round.error) {
-          continue;
-        }
-        
-        totalTokens += round.tokenCount || 0;
+      
+      if (!chat) {
+        console.warn(`❌ Chat not found: ${chatId}`);
+        continue;
       }
+      
+      if (!chat.rounds || !Array.isArray(chat.rounds)) {
+        console.warn(`❌ Chat ${chatId} has no rounds array`);
+        continue;
+      }
+      
+      // ⚠️ CRITICAL: roundNumber is 1-indexed, array is 0-indexed!
+      const round = chat.rounds[parseInt(roundNumber) - 1];
+      
+      if (!round) {
+        console.warn(`❌ Round ${roundNumber} not found in chat ${chatId} (has ${chat.rounds.length} rounds)`);
+        continue;
+      }
+      
+      // Skip error rounds
+      if (round.error) {
+        console.log(`⚠️ Skipping error round ${roundNumber} in chat ${chatId}`);
+        continue;
+      }
+      
+      console.log(`✅ Round ${roundNumber} in ${chatId}: ${round.tokenCount} tokens, ${round.total?.chars} chars`);
+      
+      totalTokens += round.tokenCount || 0;
+      totalChars += round.total?.chars || 0;
     }
     
-    return totalTokens;
+    console.log(`📈 Total: ${totalTokens} tokens, ${totalChars} chars`);
+    
+    return { tokens: totalTokens, chars: totalChars };
   },
 
   /**
@@ -71,8 +97,10 @@ export const TimerManager = {
   async _getTimerStatus(timerType, now) {
     const timer = await this._checkAndStartWindow(timerType, now);
     
-    // Calculate tokens from roundIds
-    const tokens = await this._calculateTokensFromRoundIds(timer.roundIds || []);
+    // Calculate tokens and chars from roundIds
+    const stats = await this._calculateTokensFromRoundIds(timer.roundIds || []);
+    
+    console.log(`⏱️ ${timerType} timer stats:`, stats, 'from', timer.roundIds?.length || 0, 'rounds');
     
     // KIKOMMENTEZVE - Nincs limit tracking, csak mérés
     // const limit = timerType === 'fourHour' ? CONSTANTS.TIMER_LIMITS.FOUR_HOUR : CONSTANTS.TIMER_LIMITS.WEEKLY;
@@ -81,10 +109,12 @@ export const TimerManager = {
     
     return {
       active: true,
-      tokens,
+      tokens: stats.tokens,
+      chars: stats.chars,
       // KIKOMMENTEZVE - Nincs limit tracking
       // limit,
       // percentage: (tokens / limit) * 100,
+      percentage: 0, // Placeholder for progress bar
       timeRemaining,
       expired,
       startTime: timer.startTime,

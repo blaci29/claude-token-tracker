@@ -13,6 +13,7 @@ body {
   background: var(--dt-bg-primary);
   color: var(--dt-text-primary);
   overflow-x: hidden;
+  border: 1px solid var(--dt-border);
 }
 
 .popup-container {
@@ -255,10 +256,12 @@ body {
 
 /* Progress Bar */
 .progress-bar {
-  height: 6px;
+  height: 8px;
   background: var(--dt-bg-tertiary);
   border-radius: var(--dt-radius-sm);
   overflow: hidden;
+  border: 1px solid var(--dt-border);
+  margin-top: var(--dt-space-xs);
 }
 
 .progress-fill {
@@ -360,7 +363,7 @@ body {
   gap: var(--dt-space-xs);
   padding: var(--dt-space-sm);
   background: var(--dt-accent-orange);
-  color: white;
+  color: #1a1a1a;
   border: none;
   border-radius: var(--dt-radius-sm);
   font-size: var(--dt-font-size-sm);
