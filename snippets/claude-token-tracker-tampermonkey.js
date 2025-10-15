@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Claude Token Tracker
 // @namespace    http://tampermonkey.net/
-// @version      1.3
-// @description  Real-time token usage tracking for Claude.ai with console spam filtering
+// @version      1.4
+// @description  Real-time token usage tracking for Claude.ai with image support & console spam filtering
 // @author       You
 // @match        https://claude.ai/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=claude.ai
@@ -90,6 +90,15 @@ CONSOLE_SPAM_PATTERNS: [
     thinking: null,         // Claude's thinking process (null = use central 2.6)
     assistant: null,        // Claude's visible response (null = use central 2.6)
     toolContent: null,      // Artifacts, code files (null = use central 2.6)
+  },
+  
+  // === IMAGE TOKEN ESTIMATION ===
+  IMAGE_TOKEN_ESTIMATION: {
+    enabled: true,                    // Enable image token tracking?
+    fallbackTokensPerImage: 1500,    // Fallback if size unknown (average: ~1400-1600)
+    useAnthropicFormula: true,       // Use (width × height) / 750 when size available
+    warnOnLargeImages: true,         // Warn if image > 1600 tokens
+    largeImageThreshold: 1600        // Threshold for "large image" warning
   },
   
   // === OTHER SETTINGS ===
@@ -198,6 +207,8 @@ window.claudeTracker = {
     totalUserTokens: 0,
     totalDocChars: 0,
     totalDocTokens: 0,
+    totalImageTokens: 0,  // NEW!
+    totalImageCount: 0,   // NEW!
     totalThinkingChars: 0,
     totalThinkingTokens: 0,
     totalAssistantChars: 0,
@@ -215,6 +226,7 @@ window.claudeTracker = {
     hasThinking: false,
     user: { chars: 0, tokens: 0 },
     documents: { chars: 0, tokens: 0, count: 0 },
+    images: { count: 0, tokens: 0, estimated: true, details: [] }, // NEW!
     thinking: { text: '', chars: 0, tokens: 0 },
     assistant: { text: '', chars: 0, tokens: 0 },
     toolContent: { text: '', chars: 0, tokens: 0 },
@@ -240,6 +252,39 @@ function estimateTokens(chars, type = 'userMessage') {
   }
   const rate = getTokenEstimationRate(type);
   return Math.ceil(chars / rate);
+}
+
+// === IMAGE TOKEN ESTIMATION ===
+function estimateImageTokens(width, height) {
+  if (!SETTINGS.IMAGE_TOKEN_ESTIMATION.enabled) {
+    return 0;
+  }
+  
+  // If no dimensions, use fallback
+  if (!width || !height) {
+    return SETTINGS.IMAGE_TOKEN_ESTIMATION.fallbackTokensPerImage;
+  }
+  
+  // Anthropic formula: (width × height) / 750
+  // Images are resized if longest side > 1568px
+  let finalWidth = width;
+  let finalHeight = height;
+  
+  const maxDimension = Math.max(width, height);
+  if (maxDimension > 1568) {
+    const scale = 1568 / maxDimension;
+    finalWidth = Math.round(width * scale);
+    finalHeight = Math.round(height * scale);
+  }
+  
+  const tokens = Math.round((finalWidth * finalHeight) / 750);
+  
+  // Warn if large image
+  if (SETTINGS.IMAGE_TOKEN_ESTIMATION.warnOnLargeImages && tokens > SETTINGS.IMAGE_TOKEN_ESTIMATION.largeImageThreshold) {
+    console.warn(`⚠️ Large image detected: ${width}×${height} → ${tokens} tokens (>${SETTINGS.IMAGE_TOKEN_ESTIMATION.largeImageThreshold})`);
+  }
+  
+  return tokens;
 }
 
 // === CHECK IF ENDPOINT IS IMPORTANT ===
@@ -459,9 +504,94 @@ function initModelStats(modelName) {
       totalAssistantChars: 0,
       totalAssistantTokens: 0,
       totalToolChars: 0,
-      totalToolTokens: 0
+      totalToolTokens: 0,
+      totalImageTokens: 0,
+      totalImageCount: 0
     };
   }
+}
+
+// === UPDATE IMAGE DIMENSIONS FROM RESPONSE ===
+function updateImageDimensionsFromResponse(chatMessages) {
+  if (!window.claudeTracker.currentRound.active) return;
+  if (window.claudeTracker.currentRound.images.count === 0) return;
+  
+  // Find the latest message with images
+  let foundImages = [];
+  
+  for (let i = chatMessages.length - 1; i >= 0; i--) {
+    const message = chatMessages[i];
+    
+    if (message.files && Array.isArray(message.files)) {
+      message.files.forEach((file, fileIndex) => {
+        // Check if this is an image with dimensions
+        if (file.preview_asset && file.preview_asset.image_width && file.preview_asset.image_height) {
+          foundImages.push({
+            width: file.preview_asset.image_width,
+            height: file.preview_asset.image_height,
+            uuid: file.uuid || file.file_uuid || `unknown_${fileIndex}`
+          });
+        }
+      });
+      
+      // If we found images, stop searching
+      if (foundImages.length > 0) break;
+    }
+  }
+  
+  if (foundImages.length === 0) {
+    if (debugMode) {
+      console.log('🐛 ℹ️ No image dimensions found in response');
+    }
+    return;
+  }
+  
+  // Calculate precise tokens with actual dimensions
+  let totalTokens = 0;
+  foundImages.forEach(img => {
+    const tokens = estimateImageTokens(img.width, img.height);
+    totalTokens += tokens;
+    
+    if (debugMode) {
+      console.log(`🐛 📷 Image ${img.uuid}: ${img.width}×${img.height} = ${tokens} tokens`);
+    }
+  });
+  
+  // Update current round with precise values
+  const oldTokens = window.claudeTracker.currentRound.images.tokens;
+  window.claudeTracker.currentRound.images.tokens = totalTokens;
+  window.claudeTracker.currentRound.images.estimated = false;
+  window.claudeTracker.currentRound.images.details = foundImages.map(img => ({
+    width: img.width,
+    height: img.height,
+    tokens: estimateImageTokens(img.width, img.height),
+    uuid: img.uuid,
+    // Extended data for future API verification
+    estimatedTokens: estimateImageTokens(img.width, img.height),
+    apiTokens: null,  // Will be filled if we send to Anthropic API
+    formula: 'anthropic',
+    resized: Math.max(img.width, img.height) > 1568,
+    originalDimensions: { width: img.width, height: img.height },
+    timestamp: new Date().toISOString()
+  }));
+  
+  const tokenDiff = totalTokens - oldTokens;
+  
+  console.log('');
+  console.log('📷 IMAGE DIMENSIONS UPDATED!');
+  console.log(`   Found ${foundImages.length} image(s) with actual dimensions`);
+  console.log(`   Estimated: ~${oldTokens.toLocaleString()} tokens`);
+  console.log(`   Actual: ${totalTokens.toLocaleString()} tokens`);
+  console.log(`   Difference: ${tokenDiff > 0 ? '+' : ''}${tokenDiff.toLocaleString()} tokens`);
+  
+  if (foundImages.length > 1) {
+    console.log('   Per-image breakdown:');
+    foundImages.forEach((img, idx) => {
+      const tokens = estimateImageTokens(img.width, img.height);
+      console.log(`   [${idx + 1}] ${img.width}×${img.height} = ${tokens.toLocaleString()} tokens`);
+    });
+  }
+  console.log('');
 }
 
 // === SAVE ROUND ===
@@ -480,7 +610,7 @@ function saveRound() {
   const hasThinking = thinkingChars > 0;
   
   const userSubtotalChars = round.user.chars + round.documents.chars;
-  const userSubtotalTokens = round.user.tokens + round.documents.tokens;
+  const userSubtotalTokens = round.user.tokens + round.documents.tokens + round.images.tokens;
   const claudeSubtotalChars = thinkingChars + assistantChars + toolChars;
   const claudeSubtotalTokens = thinkingTokens + assistantTokens + toolTokens;
   
@@ -500,6 +630,12 @@ function saveRound() {
       chars: round.documents.chars,
       tokens: round.documents.tokens,
       count: round.documents.count
+    },
+    images: {
+      count: round.images.count,
+      tokens: round.images.tokens,
+      estimated: round.images.estimated,
+      details: round.images.details
     },
     userSubtotal: {
       chars: userSubtotalChars,
@@ -542,6 +678,8 @@ function saveRound() {
   window.claudeTracker.global.totalAssistantTokens += assistantTokens;
   window.claudeTracker.global.totalToolChars += toolChars;
   window.claudeTracker.global.totalToolTokens += toolTokens;
+  window.claudeTracker.global.totalImageTokens += round.images.tokens;
+  window.claudeTracker.global.totalImageCount += round.images.count;
   window.claudeTracker.global.totalChars += totalChars;
   window.claudeTracker.global.totalTokens += totalTokens;
   
@@ -568,6 +706,8 @@ function saveRound() {
   modelStats.totalAssistantTokens += assistantTokens;
   modelStats.totalToolChars += toolChars;
   modelStats.totalToolTokens += toolTokens;
+  modelStats.totalImageTokens += round.images.tokens;
+  modelStats.totalImageCount += round.images.count;
   
   printRoundSummary(savedRound);
   
@@ -584,6 +724,7 @@ function saveRound() {
     hasThinking: false,
     user: { chars: 0, tokens: 0 },
     documents: { chars: 0, tokens: 0, count: 0 },
+    images: { count: 0, tokens: 0, estimated: true, details: [] },
     thinking: { text: '', chars: 0, tokens: 0 },
     assistant: { text: '', chars: 0, tokens: 0 },
     toolContent: { text: '', chars: 0, tokens: 0 },
@@ -597,7 +738,7 @@ function printRoundSummary(round) {
   const g = window.claudeTracker.global;
   
   const globalUserSubtotal = g.totalUserChars + g.totalDocChars;
-  const globalUserTokens = g.totalUserTokens + g.totalDocTokens;
+  const globalUserTokens = g.totalUserTokens + g.totalDocTokens + g.totalImageTokens;
   const globalClaudeSubtotal = g.totalThinkingChars + g.totalAssistantChars + g.totalToolChars;
   const globalClaudeTokens = g.totalThinkingTokens + g.totalAssistantTokens + g.totalToolTokens;
   
@@ -615,6 +756,19 @@ function printRoundSummary(round) {
     console.log(`   Documents (${round.documents.count}): ${round.documents.chars.toLocaleString()} chars (~${round.documents.tokens.toLocaleString()} tokens)`);
   } else {
     console.log(`   Documents: 0 chars (~0 tokens)`);
+  }
+  
+  if (round.images.count > 0) {
+    const estimatedMarker = round.images.estimated ? '~' : '';
+    const estimatedNote = round.images.estimated ? ' (estimated)' : '';
+    console.log(`   Images (${round.images.count}): ${estimatedMarker}${round.images.tokens.toLocaleString()} tokens${estimatedNote}`);
+    
+    // Show per-image breakdown if details available
+    if (round.images.details && round.images.details.length > 0 && !round.images.estimated) {
+      round.images.details.forEach((img, idx) => {
+        console.log(`      [${idx + 1}] ${img.width}×${img.height} = ${img.tokens.toLocaleString()} tokens`);
+      });
+    }
   }
   
   console.log('   ─────────────────────────────');
@@ -643,6 +797,9 @@ function printRoundSummary(round) {
   console.log('   📥 USER INPUT:');
   console.log(`      User messages: ${g.totalUserChars.toLocaleString()} chars (~${g.totalUserTokens.toLocaleString()} tokens)`);
   console.log(`      Documents: ${g.totalDocChars.toLocaleString()} chars (~${g.totalDocTokens.toLocaleString()} tokens)`);
+  if (g.totalImageCount > 0) {
+    console.log(`      Images (${g.totalImageCount}): ~${g.totalImageTokens.toLocaleString()} tokens`);
+  }
   console.log('      ─────────────────────────────');
   console.log(`      USER SUBTOTAL: ${globalUserSubtotal.toLocaleString()} chars (~${globalUserTokens.toLocaleString()} tokens)`);
   console.log('');
@@ -703,6 +860,9 @@ window.showModelStats = function() {
     console.log('   📥 USER INPUT:');
     console.log(`      User messages: ${stats.totalUserChars.toLocaleString()} chars (~${stats.totalUserTokens.toLocaleString()} tokens)`);
     console.log(`      Documents: ${stats.totalDocChars.toLocaleString()} chars (~${stats.totalDocTokens.toLocaleString()} tokens)`);
+    if (stats.totalImageCount > 0) {
+      console.log(`      Images (${stats.totalImageCount}): ~${stats.totalImageTokens.toLocaleString()} tokens`);
+    }
     console.log('      ─────────────────────────────');
     console.log(`      USER SUBTOTAL: ${userSubtotal.toLocaleString()} chars (~${userTokens.toLocaleString()} tokens)`);
     console.log('');
@@ -729,6 +889,8 @@ window.showModelStats = function() {
       withThinking: stats.roundsWithThinking,
       withoutThinking: stats.roundsWithoutThinking,
       totalTokens: stats.totalTokens,
+      imageCount: stats.totalImageCount || 0,
+      imageTokens: stats.totalImageTokens || 0,
       thinkingTokens: stats.totalThinkingTokens,
       assistantTokens: stats.totalAssistantTokens
     };
@@ -775,6 +937,8 @@ window.resetTracker = function() {
       totalUserTokens: 0,
       totalDocChars: 0,
       totalDocTokens: 0,
+      totalImageTokens: 0,
+      totalImageCount: 0,
       totalThinkingChars: 0,
       totalThinkingTokens: 0,
       totalAssistantChars: 0,
@@ -787,6 +951,38 @@ window.resetTracker = function() {
     window.claudeTracker.rounds = [];
     window.claudeTracker.last = null;
     console.log('🔄 Tracker reset successfully!');
+  }
+};
+
+// === MANUAL IMAGE DIMENSION UPDATE ===
+window.updateImageDimensions = async function() {
+  // Get conversation ID from URL
+  const match = window.location.pathname.match(/\/chat\/([a-f0-9-]+)/);
+  if (!match) {
+    console.error('❌ Not in a chat conversation!');
+    return;
+  }
+  
+  const conversationId = match[1];
+  const orgId = '8a16f469-4329-4988-96da-c65439b48f0d'; // You may need to adjust this
+  const url = `https://claude.ai/api/organizations/${orgId}/chat_conversations/${conversationId}`;
+  
+  console.log('🔄 Fetching conversation data...');
+  console.log(`📡 URL: ${url}`);
+  
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.chat_messages && Array.isArray(data.chat_messages)) {
+      console.log(`✅ Found ${data.chat_messages.length} messages`);
+      updateImageDimensionsFromResponse(data.chat_messages);
+    } else {
+      console.error('❌ No chat_messages in response');
+      console.log('Response keys:', Object.keys(data));
+    }
+  } catch(e) {
+    console.error('❌ Error fetching conversation:', e);
   }
 };
 
@@ -882,10 +1078,8 @@ window.fetch = async function(url, options = {}) {
                 content_length: file.content?.length
               });
               
-              // Log the ENTIRE file object for image detection
-              if (file.uuid || file.file_uuid) {
-                console.log(`🐛 📄 File [${index}] FULL OBJECT:`, file);
-              }
+              // ALWAYS log the ENTIRE file object for inspection
+              console.log(`🐛 📄 File [${index}] FULL OBJECT:`, file);
             });
           }
           
@@ -895,6 +1089,26 @@ window.fetch = async function(url, options = {}) {
             bodyKeys: Object.keys(body),
             interestingFields: interestingFields
           });
+        }
+        
+        // === CHECK FOR IMAGES ===
+        let imageCount = 0;
+        let imageTokens = 0;
+        
+        if (body.files && Array.isArray(body.files)) {
+          imageCount = body.files.length;
+          // Use fallback token estimation (we don't have dimensions yet)
+          imageTokens = imageCount * SETTINGS.IMAGE_TOKEN_ESTIMATION.fallbackTokensPerImage;
+          
+          window.claudeTracker.currentRound.images.count = imageCount;
+          window.claudeTracker.currentRound.images.tokens = imageTokens;
+          window.claudeTracker.currentRound.images.estimated = true;
+          
+          console.log(`📷 IMAGES: ${imageCount} × ~${SETTINGS.IMAGE_TOKEN_ESTIMATION.fallbackTokensPerImage} tk = ~${imageTokens.toLocaleString()} tokens (estimated)`);
+          
+          if (debugMode) {
+            console.log('🐛 💡 Image dimensions will be updated when response is received');
+          }
         }
         
         // === CHECK FOR DOCUMENTS ===
@@ -999,6 +1213,30 @@ window.fetch = async function(url, options = {}) {
     if (contentType.includes('text/event-stream')) {
       const clonedResponse = response.clone();
       processSSEStream(clonedResponse.body);
+    }
+  }
+  
+  // === PROCESS CHAT CONVERSATION RESPONSE (for image dimensions) ===
+  // NOTE: /latest endpoint doesn't have chat_messages, need the full conversation endpoint
+  if (typeof url === 'string' && url.includes('/chat_conversations/') && !url.includes('/latest')) {
+    const contentType = response.headers.get('content-type') || '';
+    
+    if (contentType.includes('application/json')) {
+      try {
+        const clonedResponse = response.clone();
+        const data = await clonedResponse.json();
+        
+        // Extract image dimensions from chat_messages
+        if (data.chat_messages && Array.isArray(data.chat_messages)) {
+          updateImageDimensionsFromResponse(data.chat_messages);
+        } else if (debugMode) {
+          console.log('🐛 ℹ️ Response has no chat_messages array (might be /latest endpoint)');
+        }
+      } catch(e) {
+        if (debugMode) {
+          console.log('🐛 ⚠️ Could not parse chat conversation response:', e.message);
+        }
+      }
     }
   }
   
@@ -1130,6 +1368,7 @@ console.log('   - Automatic token tracking for every conversation round');
 console.log('   - Model tracking & thinking detection');
 console.log('   - DOM-based model detection');
 console.log('   - Configurable token estimation per content type');
+console.log('   - Image token tracking with Anthropic formula');
 console.log('   - Console spam filtering (clean console!)');
 console.log('   - Enhanced debug mode with endpoint filtering');
 console.log('   - Debug log export to file');
@@ -1146,6 +1385,11 @@ console.log(`      User documents: ${SETTINGS.TOKEN_ESTIMATION.userDocuments || 
 console.log(`      Thinking: ${SETTINGS.TOKEN_ESTIMATION.thinking || 'central'}`);
 console.log(`      Assistant: ${SETTINGS.TOKEN_ESTIMATION.assistant || 'central'}`);
 console.log(`      Tool content: ${SETTINGS.TOKEN_ESTIMATION.toolContent || 'central'}`);
+console.log(`   Image tracking: ${SETTINGS.IMAGE_TOKEN_ESTIMATION.enabled ? 'ON' : 'OFF'}`);
+if (SETTINGS.IMAGE_TOKEN_ESTIMATION.enabled) {
+  console.log(`      Formula: ${SETTINGS.IMAGE_TOKEN_ESTIMATION.useAnthropicFormula ? 'Anthropic (w×h)/750' : 'Fallback only'}`);
+  console.log(`      Fallback: ${SETTINGS.IMAGE_TOKEN_ESTIMATION.fallbackTokensPerImage} tokens/image`);
+}
 console.log('');
 console.log('📌 Token estimation: chars / rate (default 2.6, ~3-5% accuracy)');
 console.log('');
@@ -1159,6 +1403,7 @@ console.log('   window.enableDebug()     - Enable ENHANCED debug mode');
 console.log('   window.disableDebug()    - Disable debug mode');
 console.log('   window.saveDebugLog()    - Download debug log as file');
 console.log('   window.getDebugSummary() - Show debug summary in console');
+console.log('   window.updateImageDimensions() - Manually fetch image dimensions for current chat');
 console.log('');
 console.log('💬 Start chatting with Claude to track token usage!');
 console.log('');
