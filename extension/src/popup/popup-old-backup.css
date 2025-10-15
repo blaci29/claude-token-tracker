@@ -1,0 +1,208 @@
+/**
+ * CLAUDE TOKEN TRACKER - POPUP STYLES
+ */
+
+body {
+  width: 360px;
+  min-height: 500px;
+  max-height: 600px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+}
+
+.popup-container {
+  padding: var(--space-5);
+}
+
+/* Header */
+.popup-header {
+  text-align: center;
+  margin-bottom: var(--space-6);
+}
+
+.popup-title {
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-1);
+}
+
+.popup-subtitle {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* Sections */
+.popup-section {
+  margin-bottom: var(--space-5);
+}
+
+/* Control Row */
+.control-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-3);
+}
+
+.control-row:last-child {
+  margin-bottom: 0;
+}
+
+.control-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-base);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+}
+
+.control-icon {
+  font-size: var(--text-lg);
+}
+
+/* Ratio Input */
+.ratio-input {
+  width: 70px;
+  text-align: center;
+  font-weight: var(--font-semibold);
+}
+
+/* Timer */
+.timer-header {
+  margin-bottom: var(--space-3);
+}
+
+.timer-title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.timer-content {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.timer-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.timer-stat-row:last-child {
+  margin-bottom: 0;
+}
+
+.stat-label {
+  color: var(--text-secondary);
+}
+
+.stat-value {
+  color: var(--text-primary);
+  font-weight: var(--font-medium);
+  font-family: monospace;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.btn-icon {
+  padding: 2px 6px;
+  font-size: var(--text-xs);
+  border: none;
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-icon:hover {
+  background: var(--bg-tertiary);
+}
+
+/* Progress Bar */
+.progress-bar {
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin: var(--space-3) 0;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--primary-blue);
+  border-radius: var(--radius-full);
+  transition: width var(--transition-slow);
+}
+
+.progress-fill.warning {
+  background: var(--warning);
+}
+
+.progress-fill.danger {
+  background: var(--danger);
+}
+
+/* Timer Actions */
+.timer-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.timer-actions .btn {
+  flex: 1;
+}
+
+/* Action Buttons */
+.action-buttons {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.action-buttons .btn {
+  flex: 1;
+}
+
+/* Support Box */
+.support-box {
+  text-align: center;
+  padding: var(--space-4);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+}
+
+.support-text {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-2);
+}
+
+/* Disabled State */
+.timer-content.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.timer-content.disabled::after {
+  content: 'Not started';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  font-weight: var(--font-medium);
+}

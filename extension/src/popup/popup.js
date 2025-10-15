@@ -37,7 +37,7 @@ async function loadSettings() {
     
     if (response.success) {
       currentSettings = response.data;
-      updateSettingsUI();
+      updateTrackingToggle();
     }
   } catch (error) {
     console.error('Error loading settings:', error);
@@ -63,22 +63,22 @@ async function loadTimerStatus() {
 }
 
 /**
- * Update settings UI
+ * Update tracking toggle
  */
-function updateSettingsUI() {
+function updateTrackingToggle() {
   if (!currentSettings) return;
   
-  // Tracking toggle
   const trackingToggle = document.getElementById('tracking-toggle');
+  const trackingStatus = document.getElementById('tracking-status');
+  
   trackingToggle.checked = currentSettings.trackingEnabled;
+  trackingStatus.textContent = currentSettings.trackingEnabled ? 'ON' : 'OFF';
   
-  // Token ratio
-  const tokenRatio = document.getElementById('token-ratio');
-  tokenRatio.value = currentSettings.tokenEstimation.central;
-  
-  // Overlay toggle
-  const overlayToggle = document.getElementById('overlay-toggle');
-  overlayToggle.checked = currentSettings.overlayEnabled;
+  if (currentSettings.trackingEnabled) {
+    trackingStatus.classList.add('active');
+  } else {
+    trackingStatus.classList.remove('active');
+  }
 }
 
 /**
@@ -99,44 +99,48 @@ function updateTimerUI() {
  */
 function update4HourTimer() {
   const fourHour = timerStatus.fourHour;
-  const content = document.getElementById('four-hour-content');
   
-  if (!fourHour.active) {
-    content.classList.add('disabled');
-    // KIKOMMENTEZVE - Nincs limit display
-    // document.getElementById('4h-tokens').textContent = '0 / ~50,000';
-    document.getElementById('4h-tokens').textContent = '0';
-    document.getElementById('4h-remaining').textContent = 'Inactive';
-    return;
+  // End time
+  const endEl = document.getElementById('4h-end');
+  if (fourHour.active && fourHour.endTime) {
+    const endDate = new Date(fourHour.endTime);
+    const timeStr = endDate.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit', 
+      hour12: true 
+    });
+    endEl.textContent = timeStr;
+  } else {
+    endEl.textContent = 'Not started';
   }
   
-  content.classList.remove('disabled');
+  // Chars and tokens
+  document.getElementById('4h-chars').textContent = `${Utils.formatLargeNumber(fourHour.chars || 0)} chars`;
+  document.getElementById('4h-tokens').textContent = `${Utils.formatLargeNumber(fourHour.tokens || 0)} tokens`;
   
-  // Tokens - KIKOMMENTEZVE limit display
-  // const tokensText = `${Utils.formatLargeNumber(fourHour.tokens)} / ~${Utils.formatLargeNumber(fourHour.limit)}`;
-  const tokensText = Utils.formatLargeNumber(fourHour.tokens);
-  document.getElementById('4h-tokens').textContent = tokensText;
+  // Progress bar
+  const percentage = Math.min(parseFloat(fourHour.percentage || 0), 100);
+  const progressBar = document.getElementById('4h-progress');
+  progressBar.style.width = `${percentage}%`;
   
-  // Progress bar - KIKOMMENTEZVE, nincs limit tracking
-  // const percentage = parseFloat(fourHour.percentage);
-  // const progressBar = document.getElementById('4h-progress');
-  // progressBar.style.width = `${Math.min(percentage, 100)}%`;
+  // Color based on percentage
+  progressBar.classList.remove('warning', 'danger');
+  if (percentage >= 100) {
+    progressBar.classList.add('danger');
+  } else if (percentage >= 90) {
+    progressBar.classList.add('warning');
+  }
   
-  // Color based on percentage - KIKOMMENTEZVE
-  // progressBar.classList.remove('warning', 'danger');
-  // if (percentage >= 100) {
-  //   progressBar.classList.add('danger');
-  // } else if (percentage >= 90) {
-  //   progressBar.classList.add('warning');
-  // }
-  
-  // Remaining time - format: "Resets in 3 hr 34 min"
-  if (fourHour.timeRemaining > 0) {
-    const hours = Math.floor(fourHour.timeRemaining / (60 * 60 * 1000));
-    const minutes = Math.floor((fourHour.timeRemaining % (60 * 60 * 1000)) / (60 * 1000));
-    document.getElementById('4h-remaining').textContent = `Resets in ${hours} hr ${minutes} min`;
+  // Update button states
+  const startBtn = document.getElementById('start-4h');
+  if (fourHour.active) {
+    startBtn.textContent = 'Active';
+    startBtn.classList.add('btn-ghost');
+    startBtn.classList.remove('btn-primary');
   } else {
-    document.getElementById('4h-remaining').textContent = 'Expired';
+    startBtn.textContent = 'Start';
+    startBtn.classList.add('btn-primary');
+    startBtn.classList.remove('btn-ghost');
   }
 }
 
@@ -145,45 +149,53 @@ function update4HourTimer() {
  */
 function updateWeeklyTimer() {
   const weekly = timerStatus.weekly;
-  const content = document.getElementById('weekly-content');
   
-  if (!weekly.active) {
-    content.classList.add('disabled');
-    // KIKOMMENTEZVE - Nincs limit display
-    // document.getElementById('week-tokens').textContent = '0 / ~200,000';
-    document.getElementById('week-tokens').textContent = '0';
-    document.getElementById('week-reset').textContent = 'Inactive';
-    return;
+  // Reset time
+  const resetEl = document.getElementById('week-reset');
+  if (weekly.active && weekly.endTime) {
+    const endDate = new Date(weekly.endTime);
+    const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][endDate.getDay()];
+    const timeStr = endDate.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit', 
+      hour12: true 
+    });
+    resetEl.textContent = `${dayName} ${timeStr}`;
+  } else {
+    resetEl.textContent = 'Not started';
   }
   
-  content.classList.remove('disabled');
+  // Chars and tokens
+  document.getElementById('week-chars').textContent = `${Utils.formatLargeNumber(weekly.chars || 0)} chars`;
+  document.getElementById('week-tokens').textContent = `${Utils.formatLargeNumber(weekly.tokens || 0)} tokens`;
   
-  // Tokens - KIKOMMENTEZVE limit display
-  // const tokensText = `${Utils.formatLargeNumber(weekly.tokens)} / ~${Utils.formatLargeNumber(weekly.limit)}`;
-  const tokensText = Utils.formatLargeNumber(weekly.tokens);
-  document.getElementById('week-tokens').textContent = tokensText;
+  // Opus count (estimate: 1 message ≈ ~400 tokens)
+  const opusMessages = Math.round((weekly.tokens || 0) / 400);
+  document.getElementById('opus-count').textContent = `~${opusMessages} / 500 messages`;
   
-  // Progress bar - KIKOMMENTEZVE, nincs limit tracking
-  // const percentage = parseFloat(weekly.percentage);
-  // const progressBar = document.getElementById('week-progress');
-  // progressBar.style.width = `${Math.min(percentage, 100)}%`;
+  // Progress bar
+  const percentage = Math.min(parseFloat(weekly.percentage || 0), 100);
+  const progressBar = document.getElementById('week-progress');
+  progressBar.style.width = `${percentage}%`;
   
-  // Color based on percentage - KIKOMMENTEZVE
-  // progressBar.classList.remove('warning', 'danger');
-  // if (percentage >= 100) {
-  //   progressBar.classList.add('danger');
-  // } else if (percentage >= 90) {
-  //   progressBar.classList.add('warning');
-  // }
+  // Color based on percentage
+  progressBar.classList.remove('warning', 'danger');
+  if (percentage >= 100) {
+    progressBar.classList.add('danger');
+  } else if (percentage >= 90) {
+    progressBar.classList.add('warning');
+  }
   
-  // Reset time - format: "Resets Thu 9:59 AM"
-  if (weekly.endTime) {
-    const endDate = new Date(weekly.endTime);
-    const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][endDate.getDay()];
-    const timeStr = endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-    document.getElementById('week-reset').textContent = `Resets ${dayName} ${timeStr}`;
+  // Update button states
+  const startBtn = document.getElementById('start-weekly');
+  if (weekly.active) {
+    startBtn.textContent = 'Active';
+    startBtn.classList.add('btn-ghost');
+    startBtn.classList.remove('btn-primary');
   } else {
-    document.getElementById('week-reset').textContent = 'No end time set';
+    startBtn.textContent = 'Start';
+    startBtn.classList.add('btn-primary');
+    startBtn.classList.remove('btn-ghost');
   }
 }
 
@@ -201,55 +213,31 @@ function setupEventListeners() {
       
       if (currentSettings) {
         currentSettings.trackingEnabled = e.target.checked;
+        updateTrackingToggle();
       }
     } catch (error) {
       console.error('Error toggling tracking:', error);
     }
   });
   
-  // Token ratio
-  document.getElementById('token-ratio').addEventListener('change', async (e) => {
-    try {
-      const newRatio = parseFloat(e.target.value);
-      
-      if (newRatio >= 1 && newRatio <= 5) {
-        currentSettings.tokenEstimation.central = newRatio;
-        
-        await chrome.runtime.sendMessage({
-          type: CONSTANTS.MSG_TYPES.UPDATE_SETTINGS,
-          data: { settings: currentSettings }
-        });
-      }
-    } catch (error) {
-      console.error('Error updating token ratio:', error);
-    }
-  });
-  
-  // 4-hour timer controls
+  // 4-hour timer start
   document.getElementById('start-4h').addEventListener('click', async () => {
     try {
-      if (timerStatus.fourHour.enabled) {
-        // Stop timer - just disable it
-        timerStatus.fourHour.enabled = false;
-        await chrome.runtime.sendMessage({
-          type: CONSTANTS.MSG_TYPES.RESET_TIMER,
-          data: { timerType: CONSTANTS.TIMER_TYPES.FOUR_HOUR }
-        });
-      } else {
-        // Start timer
-        await chrome.runtime.sendMessage({
-          type: CONSTANTS.MSG_TYPES.RESET_TIMER,
-          data: { timerType: CONSTANTS.TIMER_TYPES.FOUR_HOUR }
-        });
-      }
+      await chrome.runtime.sendMessage({
+        type: CONSTANTS.MSG_TYPES.RESET_TIMER,
+        data: { timerType: CONSTANTS.TIMER_TYPES.FOUR_HOUR }
+      });
       
       await loadTimerStatus();
     } catch (error) {
-      console.error('Error toggling 4h timer:', error);
+      console.error('Error starting 4h timer:', error);
     }
   });
   
+  // 4-hour timer reset
   document.getElementById('reset-4h').addEventListener('click', async () => {
+    if (!confirm('Reset 4-hour timer? This will clear all data.')) return;
+    
     try {
       await chrome.runtime.sendMessage({
         type: CONSTANTS.MSG_TYPES.RESET_TIMER,
@@ -262,54 +250,24 @@ function setupEventListeners() {
     }
   });
   
-  document.getElementById('set-4h-end').addEventListener('click', async () => {
-    // Simple prompt for now - could be improved with a better time picker
-    const hours = prompt('Set end time (hours from now):', '4');
-    
-    if (hours) {
-      const hoursNum = parseFloat(hours);
-      if (hoursNum > 0) {
-        const endTime = new Date(Date.now() + hoursNum * 60 * 60 * 1000).toISOString();
-        
-        try {
-          await chrome.runtime.sendMessage({
-            type: CONSTANTS.MSG_TYPES.SET_TIMER_END,
-            data: { endTime }
-          });
-          
-          await loadTimerStatus();
-        } catch (error) {
-          console.error('Error setting timer end:', error);
-        }
-      }
-    }
-  });
-  
-  // Weekly timer controls
+  // Weekly timer start
   document.getElementById('start-weekly').addEventListener('click', async () => {
     try {
-      if (timerStatus.weekly.enabled) {
-        // Stop timer
-        timerStatus.weekly.enabled = false;
-        await chrome.runtime.sendMessage({
-          type: CONSTANTS.MSG_TYPES.RESET_TIMER,
-          data: { timerType: CONSTANTS.TIMER_TYPES.WEEKLY }
-        });
-      } else {
-        // Start timer
-        await chrome.runtime.sendMessage({
-          type: CONSTANTS.MSG_TYPES.RESET_TIMER,
-          data: { timerType: CONSTANTS.TIMER_TYPES.WEEKLY }
-        });
-      }
+      await chrome.runtime.sendMessage({
+        type: CONSTANTS.MSG_TYPES.RESET_TIMER,
+        data: { timerType: CONSTANTS.TIMER_TYPES.WEEKLY }
+      });
       
       await loadTimerStatus();
     } catch (error) {
-      console.error('Error toggling weekly timer:', error);
+      console.error('Error starting weekly timer:', error);
     }
   });
   
+  // Weekly timer reset
   document.getElementById('reset-weekly').addEventListener('click', async () => {
+    if (!confirm('Reset weekly timer? This will clear all data.')) return;
+    
     try {
       await chrome.runtime.sendMessage({
         type: CONSTANTS.MSG_TYPES.RESET_TIMER,
@@ -322,32 +280,7 @@ function setupEventListeners() {
     }
   });
   
-  // Overlay toggle
-  document.getElementById('overlay-toggle').addEventListener('change', async (e) => {
-    try {
-      await chrome.runtime.sendMessage({
-        type: CONSTANTS.MSG_TYPES.TOGGLE_OVERLAY,
-        data: { enabled: e.target.checked }
-      });
-      
-      if (currentSettings) {
-        currentSettings.overlayEnabled = e.target.checked;
-      }
-      
-      // Notify current tab
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tab && tab.url.includes('claude.ai')) {
-        chrome.tabs.sendMessage(tab.id, {
-          type: CONSTANTS.MSG_TYPES.TOGGLE_OVERLAY,
-          data: { enabled: e.target.checked }
-        });
-      }
-    } catch (error) {
-      console.error('Error toggling overlay:', error);
-    }
-  });
-  
-  // Action buttons
+  // Navigation buttons
   document.getElementById('open-stats').addEventListener('click', () => {
     chrome.tabs.create({ url: chrome.runtime.getURL('src/stats/stats.html') });
   });
@@ -355,21 +288,16 @@ function setupEventListeners() {
   document.getElementById('open-settings').addEventListener('click', () => {
     chrome.runtime.openOptionsPage();
   });
-  
-  // Support button
-  document.getElementById('support-btn').addEventListener('click', () => {
-    chrome.tabs.create({ url: 'https://ko-fi.com/yourname' }); // Replace with actual donation URL
-  });
 }
 
 /**
  * Start auto-update interval
  */
 function startAutoUpdate() {
-  // Update timer UI every second
+  // Update every 5 seconds
   updateInterval = setInterval(async () => {
     await loadTimerStatus();
-  }, 1000);
+  }, 5000);
 }
 
 /**
