@@ -254,7 +254,7 @@ function renderTokenBreakdown(roundIds, section) {
       
       <div class="stat-row">
         <span class="stat-label">Rounds</span>
-        <span class="stat-value">${roundIds.length}</span>
+        <span class="stat-value">${stats.successfulRounds}</span>
       </div>
     </div>
   `;
@@ -266,6 +266,7 @@ function renderTokenBreakdown(roundIds, section) {
 function calculateStatsFromRoundIds(roundIds) {
   const stats = {
     total: { chars: 0, tokens: 0 },
+    successfulRounds: 0,  // ← Count successful rounds
     byType: {
       user: { chars: 0, tokens: 0 },
       documents: { chars: 0, tokens: 0 },
@@ -304,7 +305,16 @@ function calculateStatsFromRoundIds(roundIds) {
       continue;
     }
     
+    // ⚠️ SKIP ERROR ROUNDS
+    if (round.error) {
+      console.log(`⚠️ Skipping error round ${roundNumber} in chat ${chatId}: ${round.error}`);
+      continue;
+    }
+    
     console.log(`✅ Found round ${roundNumber} in chat ${chatId}:`, round.total?.tokens, 'tokens', round.total?.chars, 'chars');
+    
+    // Count this as successful round
+    stats.successfulRounds++;
     
     // Accumulate totals - both chars and tokens
     stats.total.chars += round.total?.chars || 0;

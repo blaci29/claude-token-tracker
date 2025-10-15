@@ -39,6 +39,7 @@ export const TimerManager = {
 
   /**
    * Calculate total tokens from a list of roundIds
+   * ⚠️ SKIPS rounds with errors
    */
   async _calculateTokensFromRoundIds(roundIds) {
     if (!roundIds || roundIds.length === 0) return 0;
@@ -51,6 +52,12 @@ export const TimerManager = {
       const chat = chats[chatId];
       if (chat && chat.rounds && chat.rounds[roundNumber]) {
         const round = chat.rounds[roundNumber];
+        
+        // Skip error rounds
+        if (round.error) {
+          continue;
+        }
+        
         totalTokens += round.tokenCount || 0;
       }
     }

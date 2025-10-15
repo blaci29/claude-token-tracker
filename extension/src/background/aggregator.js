@@ -18,8 +18,11 @@ export const Aggregator = {
       };
     }
 
+    // ⚠️ CRITICAL: Only count successful rounds (skip errors)
+    const successfulRounds = rounds.filter(round => !round.error);
+
     const stats = {
-      totalRounds: rounds.length,
+      totalRounds: successfulRounds.length, // Only successful rounds
       totalTokens: 0,
       totalChars: 0,
       byType: {
@@ -32,7 +35,7 @@ export const Aggregator = {
       byModel: {}
     };
 
-    rounds.forEach(round => {
+    successfulRounds.forEach(round => {
       // Total
       stats.totalTokens += round.total.tokens;
       stats.totalChars += round.total.chars;

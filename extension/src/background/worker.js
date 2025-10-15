@@ -155,6 +155,12 @@ async function handleRoundCompleted(data) {
     model: round.model || 'unknown',
     hasThinking: round.hasThinking || false,
     
+    // ⚠️ Preserve error information if present
+    ...(round.error && {
+      error: round.error,
+      errorMessage: round.errorMessage
+    }),
+    
     user: {
       chars: round.user?.chars || 0,
       tokens: TokenEstimator.estimate(round.user?.chars || 0, 'userMessage', settings)
@@ -208,9 +214,12 @@ async function handleRoundCompleted(data) {
   
   await StorageManager.saveChat(chatId, chat);
   
-  await TimerManager.addRoundToTimers(chatId, estimatedRound.roundNumber, totalTokens);
+  // ⚠️ Only add to timers if NOT an error round
+  if (!estimatedRound.error) {
+    await TimerManager.addRoundToTimers(chatId, estimatedRound.roundNumber, totalTokens);
+  }
   
-  console.log(`✅ Round #${estimatedRound.roundNumber} saved (${totalTokens} tokens)`);
+  console.log(`✅ Round #${estimatedRound.roundNumber} saved (${totalTokens} tokens)${estimatedRound.error ? ' [ERROR - not counted]' : ''}`);
   
   if (settings.overlayEnabled) {
     try {

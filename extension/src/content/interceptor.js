@@ -39,6 +39,10 @@ const Interceptor = {
       if (event.data.type === 'CLAUDE_TRACKER_SSE_EVENT') {
         this.handleSSEEvent(event.data.event);
       }
+      
+      if (event.data.type === 'CLAUDE_TRACKER_ERROR') {
+        this.handleError(event.data);
+      }
     });
   },
   
@@ -124,6 +128,25 @@ const Interceptor = {
     };
   },
   
+  /**
+   * Handle error from page context
+   */
+  handleError(data) {
+    if (!this.currentRound) {
+      console.log('⚠️ Error received but no active round:', data.error);
+      return;
+    }
+    
+    console.log('🚨 Round error detected:', data.error);
+    
+    // Mark round as error
+    this.currentRound.round.error = data.error;
+    this.currentRound.round.errorMessage = data.message;
+    
+    // Finish round immediately (will be saved with error flag)
+    this.finishRound();
+  },
+  
   
   /**
    * Finish round and send to worker
@@ -136,6 +159,11 @@ const Interceptor = {
     this.currentRound.round.assistant.chars = this.currentRound.round.assistant.text.length;
     this.currentRound.round.toolContent.chars = this.currentRound.round.toolContent.text.length;
     
+    // Log status
+    if (this.currentRound.round.error) {
+      console.log('⚠️ Saving error round:', this.currentRound.round.error);
+    }
+    
     // Send to service worker
     try {
       const response = await chrome.runtime.sendMessage({
@@ -144,7 +172,11 @@ const Interceptor = {
       });
       
       if (response.success) {
-        console.log('✅ Round saved');
+        if (this.currentRound.round.error) {
+          console.log('✅ Error round saved (not counted in stats)');
+        } else {
+          console.log('✅ Round saved');
+        }
       } else {
         console.error('❌ Error saving round:', response.error);
       }

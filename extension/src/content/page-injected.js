@@ -33,6 +33,9 @@
     'Got response:',
     'Error loading chat data',
     'Error details:',
+    '[COMPLETION] Request failed',
+    '[COMPLETION] Not retryable error',
+    'prompt is too long',
     'formatLargeNumber'
   ];
   
@@ -215,6 +218,30 @@
       console.error('Error reading SSE stream:', e);
     }
   }
+  
+  // === ERROR DETECTION ===
+  // Catch unhandled promise rejections (e.g., "prompt is too long")
+  window.addEventListener('unhandledrejection', (event) => {
+    if (event.reason) {
+      const errorMessage = event.reason.message || String(event.reason);
+      
+      // Check for known error patterns
+      if (errorMessage.includes('prompt is too long')) {
+        // Use console.log instead of warn to avoid red errors in Extensions tab
+        console.log('🚨 Claude Token Tracker: prompt too long detected');
+        
+        // Notify interceptor about the error
+        window.postMessage({
+          type: 'CLAUDE_TRACKER_ERROR',
+          error: 'prompt_too_long',
+          message: errorMessage
+        }, '*');
+        
+        // Prevent the unhandled rejection from showing as error
+        event.preventDefault();
+      }
+    }
+  });
   
   console.log('✅ Claude Token Tracker active');
 })();
