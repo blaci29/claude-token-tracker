@@ -327,27 +327,27 @@ const OverlayManager = {
         <div class="ctt-stats-grid">
           <div class="ctt-stat-row">
             <div class="ctt-stat-label">👤 User</div>
-            <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.user?.chars)} (~${Utils.formatLargeNumber(byType.user?.tokens)})</div>
+            <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.user?.chars)} ch · ~${Utils.formatLargeNumber(byType.user?.tokens)} tk</div>
           </div>
           <div class="ctt-stat-row">
             <div class="ctt-stat-label">📄 Docs</div>
-            <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.documents?.chars)} (~${Utils.formatLargeNumber(byType.documents?.tokens)})</div>
+            <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.documents?.chars)} ch · ~${Utils.formatLargeNumber(byType.documents?.tokens)} tk</div>
           </div>
           <div class="ctt-stat-row">
             <div class="ctt-stat-label">🧠 Thinking</div>
-            <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.thinking?.chars)} (~${Utils.formatLargeNumber(byType.thinking?.tokens)})</div>
+            <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.thinking?.chars)} ch · ~${Utils.formatLargeNumber(byType.thinking?.tokens)} tk</div>
           </div>
           <div class="ctt-stat-row">
             <div class="ctt-stat-label">🤖 Reply</div>
-            <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.assistant?.chars)} (~${Utils.formatLargeNumber(byType.assistant?.tokens)})</div>
+            <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.assistant?.chars)} ch · ~${Utils.formatLargeNumber(byType.assistant?.tokens)} tk</div>
           </div>
           <div class="ctt-stat-row">
             <div class="ctt-stat-label">🔧 Tools</div>
-            <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.toolContent?.chars)} (~${Utils.formatLargeNumber(byType.toolContent?.tokens)})</div>
+            <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.toolContent?.chars)} ch · ~${Utils.formatLargeNumber(byType.toolContent?.tokens)} tk</div>
           </div>
           <div class="ctt-stat-row ctt-stat-total">
             <div class="ctt-stat-label">✨ TOTAL</div>
-            <div class="ctt-stat-value">${Utils.formatLargeNumber(stats.totalChars)} (~${Utils.formatLargeNumber(stats.totalTokens)})</div>
+            <div class="ctt-stat-value">${Utils.formatLargeNumber(stats.totalChars)} ch · ~${Utils.formatLargeNumber(stats.totalTokens)} tk</div>
           </div>
         </div>
       </div>
@@ -365,33 +365,33 @@ const OverlayManager = {
             <div class="ctt-stats-grid">
               <div class="ctt-stat-row">
                 <div class="ctt-stat-label">👤 User</div>
-                <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.user.chars)} (~${Utils.formatLargeNumber(lastRound.user.tokens)})</div>
+                <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.user.chars)} ch · ~${Utils.formatLargeNumber(lastRound.user.tokens)} tk</div>
               </div>
               ${lastRound.documents && lastRound.documents.chars > 0 ? `
                 <div class="ctt-stat-row">
                   <div class="ctt-stat-label">📄 Docs</div>
-                  <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.documents.chars)} (~${Utils.formatLargeNumber(lastRound.documents.tokens)})</div>
+                  <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.documents.chars)} ch · ~${Utils.formatLargeNumber(lastRound.documents.tokens)} tk</div>
                 </div>
               ` : ''}
               ${lastRound.thinking.chars > 0 ? `
                 <div class="ctt-stat-row">
                   <div class="ctt-stat-label">🧠 Think</div>
-                  <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.thinking.chars)} (~${Utils.formatLargeNumber(lastRound.thinking.tokens)})</div>
+                  <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.thinking.chars)} ch · ~${Utils.formatLargeNumber(lastRound.thinking.tokens)} tk</div>
                 </div>
               ` : ''}
               <div class="ctt-stat-row">
                 <div class="ctt-stat-label">🤖 Reply</div>
-                <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.assistant.chars)} (~${Utils.formatLargeNumber(lastRound.assistant.tokens)})</div>
+                <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.assistant.chars)} ch · ~${Utils.formatLargeNumber(lastRound.assistant.tokens)} tk</div>
               </div>
               ${lastRound.toolContent.chars > 0 ? `
                 <div class="ctt-stat-row">
                   <div class="ctt-stat-label">🔧 Tools</div>
-                  <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.toolContent.chars)} (~${Utils.formatLargeNumber(lastRound.toolContent.tokens)})</div>
+                  <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.toolContent.chars)} ch · ~${Utils.formatLargeNumber(lastRound.toolContent.tokens)} tk</div>
                 </div>
               ` : ''}
               <div class="ctt-stat-row ctt-stat-total">
                 <div class="ctt-stat-label">✨ Total</div>
-                <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.total.chars)} (~${Utils.formatLargeNumber(lastRound.total.tokens)})</div>
+                <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.total.chars)} ch · ~${Utils.formatLargeNumber(lastRound.total.tokens)} tk</div>
               </div>
             </div>
           </div>
