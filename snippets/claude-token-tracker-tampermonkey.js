@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Claude Token Tracker
 // @namespace    http://tampermonkey.net/
-// @version      1.6
+// @version      1.7
 // @description  Real-time token usage tracking for Claude.ai with image tracking, GitHub/Drive sync support & API-measured ratios
 // @author       You
 // @match        https://claude.ai/*
@@ -13,6 +13,27 @@
 (function() {
     'use strict';
 
+// ═══════════════════════════════════════════════════════════════════
+// 📝 CHANGELOG
+// ═══════════════════════════════════════════════════════════════════
+// v1.7 (2025-10-15): First-round GitHub/Drive sync tracking
+//   - NEW: Intercept GET /sync/chat/{uuid} for immediate file detection
+//   - FIXED: GitHub/Drive files now counted in FIRST round (not just 2nd+)
+//   - Added: DELETE /sync/chat detection (thumbnail removal)
+//   - Shows: Repo name, branch, selected file list in console
+//
+// v1.6 (2025-10-15): GitHub/Drive sync support + API-measured ratios
+//   - NEW: Automatic GitHub/Google Drive file tracking
+//   - API-MEASURED: Code/docs = 3.2 chars/token (was estimated 4.0)
+//   - Intercepts /chat_conversations/ for sync_sources detection
+//   - Cache mechanism for subsequent rounds
+//
+// v1.5 (2025-10-14): Image tracking with auto-fetch
+//   - NEW: Automatic image dimension fetching via UUID
+//   - Uses Anthropic's formula: (width × height) / 750
+//   - Retry mechanism with configurable delays
+//   - Fallback to 1500 tokens if fetch fails
+//
 // ═══════════════════════════════════════════════════════════════════
 // ⚙️ USER SETTINGS - CHANGE THESE AS NEEDED
 // ═══════════════════════════════════════════════════════════════════
@@ -1318,6 +1339,13 @@ window.fetch = async function(url, options = {}) {
         }
         
         // === CHECK FOR SYNC SOURCES (GitHub, Google Drive) ===
+        if (debugMode) {
+          console.log('🐛 🔗 Checking sync sources...');
+          console.log('🐛    body.sync_sources:', body.sync_sources ? `Array(${body.sync_sources.length})` : 'undefined');
+          console.log('🐛    lastSyncSources:', lastSyncSources ? `Array(${lastSyncSources.length})` : 'null');
+          console.log('🐛    lastSyncTimestamp:', lastSyncTimestamp ? `${((Date.now() - lastSyncTimestamp) / 1000).toFixed(1)}s ago` : 'null');
+        }
+        
         // PRIORITY 1: Check if sync_sources are directly in request body
         if (body.sync_sources && Array.isArray(body.sync_sources) && body.sync_sources.length > 0) {
           console.log('');
@@ -1363,42 +1391,65 @@ window.fetch = async function(url, options = {}) {
           console.log('🔗 ═══════════════════════════════════════════════════');
           console.log('');
         }
-        // FALLBACK: Use cached sync state from /chat_conversations/ response
+        // FALLBACK: Use cached sync state from /chat_conversations/ or /sync/chat/ response
         else if (lastSyncSources && lastSyncSources.length > 0) {
-          console.log(`🔗 Using cached sync sources (${(Date.now() - lastSyncTimestamp) / 1000}s old)`);
+          console.log('');
+          console.log('🔗 ═══════════════════════════════════════════════════');
+          console.log(`🔗 USING CACHED SYNC SOURCES (${((Date.now() - lastSyncTimestamp) / 1000).toFixed(1)}s old)`);
           
-          lastSyncSources.forEach((source) => {
+          lastSyncSources.forEach((source, idx) => {
             if (source.status && source.status.current_size_bytes) {
               const sourceBytes = source.status.current_size_bytes;
               const fileCount = source.status.current_file_count || 1;
+              const sourceTokens = estimateTokens(sourceBytes, 'userDocuments');
               
               // Add to documents counter (bytes ≈ chars for text files)
               docChars += sourceBytes;
               docCount += fileCount;
               
-              console.log(`🔗 SYNC SOURCE (${source.type}): ${sourceBytes.toLocaleString()} bytes, ${fileCount} file(s)`);
+              console.log(`   [${idx + 1}] ${source.type.toUpperCase()}`);
+              console.log(`       📊 Size: ${sourceBytes.toLocaleString()} bytes (~${sourceTokens.toLocaleString()} tokens)`);
+              console.log(`       📁 Files: ${fileCount}`);
               
-              // Show individual file details if available
-              if (source.status.files && Array.isArray(source.status.files) && source.status.files.length > 0) {
-                console.log(`   📋 File list:`);
-                source.status.files.forEach((file, fileIdx) => {
-                  const fileName = file.path || file.name || file.file_name || 'unknown';
-                  const fileSize = file.size || file.file_size || file.bytes || 0;
-                  const fileType = file.type || file.mime_type || file.file_type || 'unknown';
-                  console.log(`       [${fileIdx + 1}] ${fileName} (${fileSize.toLocaleString()} bytes, ${fileType})`);
+              // Show repo/branch info if available
+              if (source.config && source.config.owner && source.config.repo) {
+                console.log(`       📦 Repo: ${source.config.owner}/${source.config.repo}`);
+                if (source.config.branch) {
+                  console.log(`       🌿 Branch: ${source.config.branch}`);
+                }
+              }
+              
+              // Show file list from config.filters or status.files
+              let fileList = [];
+              if (source.config && source.config.filters && source.config.filters.filters) {
+                fileList = Object.keys(source.config.filters.filters).filter(
+                  path => source.config.filters.filters[path] === 'include'
+                );
+              } else if (source.status.files && Array.isArray(source.status.files)) {
+                fileList = source.status.files.map(f => f.path || f.name || f.file_name || 'unknown');
+              }
+              
+              if (fileList.length > 0) {
+                console.log(`       📋 Selected files:`);
+                fileList.forEach((filePath, fileIdx) => {
+                  console.log(`           [${fileIdx + 1}] ${filePath}`);
                 });
               }
               
               if (debugMode) {
-                console.log(`🐛 🔗 Sync source from CACHE:`, {
+                console.log(`🐛 🔗 Sync source [${idx + 1}] from CACHE:`, {
                   type: source.type,
                   bytes: sourceBytes,
                   files: fileCount,
+                  tokens: sourceTokens,
                   cacheAge: `${((Date.now() - lastSyncTimestamp) / 1000).toFixed(1)}s`
                 });
               }
             }
           });
+          
+          console.log('🔗 ═══════════════════════════════════════════════════');
+          console.log('');
           
           // Clear sync cache after use (one-time use per round)
           lastSyncSources = null;
@@ -1433,9 +1484,112 @@ window.fetch = async function(url, options = {}) {
   // === CALL ORIGINAL FETCH ===
   const response = await _originalFetch(url, options);
   
+  // === INTERCEPT SYNC/CHAT ENDPOINT (GitHub/Drive file picker) ===
+  // This fires when "Add files" button is clicked in the GitHub/Drive file picker
+  const method = options.method || 'GET';
+  
+  // Intercept GET /sync/chat/{uuid} - this contains the ready sync state with file sizes
+  if (typeof url === 'string' && url.includes('/sync/chat/') && method === 'GET' && !url.includes('/chat_conversations/')) {
+    const contentType = response.headers.get('content-type') || '';
+    
+    if (contentType.includes('application/json')) {
+      try {
+        const clonedResponse = response.clone();
+        const data = await clonedResponse.json();
+        
+        // Check if this is a sync state response with ready status
+        if (data.type && data.status && data.status.state === 'ready') {
+          const syncSource = {
+            type: data.type,
+            status: {
+              current_size_bytes: data.status.current_size_bytes || 0,
+              current_file_count: data.status.current_file_count || 0,
+              state: data.status.state
+            },
+            config: data.config || {}
+          };
+          
+          // Cache as array (compatible with existing code)
+          lastSyncSources = [syncSource];
+          lastSyncTimestamp = Date.now();
+          
+          const bytes = syncSource.status.current_size_bytes;
+          const files = syncSource.status.current_file_count;
+          const tokens = estimateTokens(bytes, 'userDocuments');
+          
+          console.log('');
+          console.log('🔗 ═══════════════════════════════════════════════════');
+          console.log('🔗 SYNC FILES ADDED (from file picker)');
+          console.log(`   [1] ${syncSource.type.toUpperCase()}`);
+          console.log(`       📊 Size: ${bytes.toLocaleString()} bytes (~${tokens.toLocaleString()} tokens)`);
+          console.log(`       📁 Files: ${files}`);
+          
+          // Show repo/branch info if available
+          if (syncSource.config.owner && syncSource.config.repo) {
+            console.log(`       📦 Repo: ${syncSource.config.owner}/${syncSource.config.repo}`);
+            if (syncSource.config.branch) {
+              console.log(`       🌿 Branch: ${syncSource.config.branch}`);
+            }
+          }
+          
+          // Show file list if available
+          if (syncSource.config.filters && syncSource.config.filters.filters) {
+            const fileList = Object.keys(syncSource.config.filters.filters).filter(
+              path => syncSource.config.filters.filters[path] === 'include'
+            );
+            if (fileList.length > 0) {
+              console.log(`       📋 Selected files:`);
+              fileList.forEach((filePath, idx) => {
+                console.log(`           [${idx + 1}] ${filePath}`);
+              });
+            }
+          }
+          
+          console.log(`   ✅ Cached and ready for next completion request`);
+          console.log('🔗 ═══════════════════════════════════════════════════');
+          console.log('');
+          
+          if (debugMode) {
+            console.log('🐛 🔗 Full sync data:', data);
+            addDebugLog('SYNC_FILES_ADDED', {
+              type: syncSource.type,
+              bytes: bytes,
+              files: files,
+              tokens: tokens,
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+      } catch (e) {
+        if (debugMode) {
+          console.log(`🐛 ⚠️ Could not parse sync/chat response: ${e.message}`);
+        }
+      }
+    }
+  }
+  
+  // Intercept DELETE /sync/chat/{uuid} - this fires when thumbnail is removed
+  if (typeof url === 'string' && url.includes('/sync/chat/') && method === 'DELETE') {
+    lastSyncSources = null;
+    lastSyncTimestamp = null;
+    
+    console.log('');
+    console.log('🔗 ═══════════════════════════════════════════════════');
+    console.log('🔗 SYNC FILES REMOVED (thumbnail deleted)');
+    console.log('   ❌ Cache cleared');
+    console.log('🔗 ═══════════════════════════════════════════════════');
+    console.log('');
+    
+    if (debugMode) {
+      addDebugLog('SYNC_FILES_REMOVED', {
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+  
   // === INTERCEPT CHAT CONVERSATIONS RESPONSES (for GitHub/Drive sync data) ===
   // Sync sources are embedded in /chat_conversations/.../latest or ?tree=True responses
-  const method = options.method || 'GET';
+  // This is a FALLBACK for older chats or if the file picker detection fails
   if (typeof url === 'string' && url.includes('/chat_conversations/') && method === 'GET') {
     const contentType = response.headers.get('content-type') || '';
     
