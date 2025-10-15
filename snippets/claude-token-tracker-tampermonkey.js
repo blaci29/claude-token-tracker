@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Claude Token Tracker
 // @namespace    http://tampermonkey.net/
-// @version      1.4
-// @description  Real-time token usage tracking for Claude.ai with image support & console spam filtering
+// @version      1.5
+// @description  Real-time token usage tracking for Claude.ai with automatic image dimension fetching & UUID-based sync
 // @author       You
 // @match        https://claude.ai/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=claude.ai
@@ -98,7 +98,10 @@ CONSOLE_SPAM_PATTERNS: [
     fallbackTokensPerImage: 1500,    // Fallback if size unknown (average: ~1400-1600)
     useAnthropicFormula: true,       // Use (width × height) / 750 when size available
     warnOnLargeImages: true,         // Warn if image > 1600 tokens
-    largeImageThreshold: 1600        // Threshold for "large image" warning
+    largeImageThreshold: 1600,       // Threshold for "large image" warning
+    fetchRetries: 3,                 // Number of retries for dimension fetch
+    fetchRetryDelay: 500,            // Delay between retries (ms)
+    fetchTimeout: 1000               // Initial delay before first fetch attempt (ms)
   },
   
   // === OTHER SETTINGS ===
@@ -511,95 +514,171 @@ function initModelStats(modelName) {
   }
 }
 
-// === UPDATE IMAGE DIMENSIONS FROM RESPONSE ===
-function updateImageDimensionsFromResponse(chatMessages) {
-  if (!window.claudeTracker.currentRound.active) return;
-  if (window.claudeTracker.currentRound.images.count === 0) return;
+// === GET CONVERSATION ID FROM URL ===
+function getConversationId() {
+  const match = window.location.pathname.match(/\/chat\/([a-f0-9-]+)/);
+  return match ? match[1] : null;
+}
+
+// === FETCH CONVERSATION DATA WITH RETRY ===
+async function fetchConversationData(retries = SETTINGS.IMAGE_TOKEN_ESTIMATION.fetchRetries) {
+  const conversationId = getConversationId();
+  if (!conversationId) {
+    throw new Error('Not in a chat conversation');
+  }
   
-  // Find the latest message with images
-  let foundImages = [];
+  const orgId = '8a16f469-4329-4988-96da-c65439b48f0d';
+  const url = `https://claude.ai/api/organizations/${orgId}/chat_conversations/${conversationId}`;
+  
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      if (debugMode) {
+        console.log(`🐛 📡 Fetching conversation data (attempt ${attempt}/${retries})...`);
+      }
+      
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.chat_messages || !Array.isArray(data.chat_messages)) {
+        throw new Error('No chat_messages in response');
+      }
+      
+      if (debugMode) {
+        console.log(`🐛 ✅ Fetched ${data.chat_messages.length} messages`);
+      }
+      
+      return data.chat_messages;
+      
+    } catch (error) {
+      if (attempt < retries) {
+        if (debugMode) {
+          console.log(`🐛 ⚠️ Fetch failed (${error.message}), retrying in ${SETTINGS.IMAGE_TOKEN_ESTIMATION.fetchRetryDelay}ms...`);
+        }
+        await new Promise(resolve => setTimeout(resolve, SETTINGS.IMAGE_TOKEN_ESTIMATION.fetchRetryDelay));
+      } else {
+        if (debugMode) {
+          console.log(`🐛 ❌ Fetch failed after ${retries} attempts: ${error.message}`);
+        }
+        throw error;
+      }
+    }
+  }
+}
+
+// === UPDATE IMAGE DIMENSIONS FROM CHAT MESSAGES ===
+function updateImageDimensionsFromMessages(chatMessages, round) {
+  if (!round.images || round.images.count === 0) {
+    return false;
+  }
+  
+  // Get UUIDs from request (stored in details during Phase 1)
+  const requestUuids = round.images.details.map(img => img.uuid);
+  
+  if (requestUuids.length === 0) {
+    if (debugMode) {
+      console.log('🐛 ⚠️ No UUIDs stored from request');
+    }
+    return false;
+  }
+  
+  // Find matching images in chat_messages (search backwards for most recent)
+  let updatedCount = 0;
   
   for (let i = chatMessages.length - 1; i >= 0; i--) {
     const message = chatMessages[i];
     
-    if (message.files && Array.isArray(message.files)) {
-      message.files.forEach((file, fileIndex) => {
-        // Check if this is an image with dimensions
-        if (file.preview_asset && file.preview_asset.image_width && file.preview_asset.image_height) {
-          foundImages.push({
-            width: file.preview_asset.image_width,
-            height: file.preview_asset.image_height,
-            uuid: file.uuid || file.file_uuid || `unknown_${fileIndex}`
-          });
-        }
-      });
+    if (!message.files || !Array.isArray(message.files)) continue;
+    
+    message.files.forEach((file, fileIndex) => {
+      const fileUuid = file.uuid || file.file_uuid;
       
-      // If we found images, stop searching
-      if (foundImages.length > 0) break;
-    }
+      // Find matching detail by UUID
+      const detailIndex = round.images.details.findIndex(
+        img => img.uuid === fileUuid
+      );
+      
+      if (detailIndex !== -1 && file.preview_asset) {
+        const detail = round.images.details[detailIndex];
+        const width = file.preview_asset.image_width;
+        const height = file.preview_asset.image_height;
+        
+        if (width && height) {
+          // Update with actual dimensions
+          detail.width = width;
+          detail.height = height;
+          detail.tokens = estimateImageTokens(width, height);
+          detail.estimated = false;
+          detail.messageUuid = message.uuid;
+          detail.messageIndex = message.index;
+          detail.fileIndex = fileIndex;
+          detail.conversationId = getConversationId();
+          
+          updatedCount++;
+          
+          if (debugMode) {
+            console.log(`🐛 ✅ UUID ${fileUuid}: ${width}×${height} = ${detail.tokens} tokens`);
+          }
+        }
+      }
+    });
+    
+    // If all images updated, break early
+    if (updatedCount === requestUuids.length) break;
   }
   
-  if (foundImages.length === 0) {
-    if (debugMode) {
-      console.log('🐛 ℹ️ No image dimensions found in response');
-    }
-    return;
-  }
-  
-  // Calculate precise tokens with actual dimensions
-  let totalTokens = 0;
-  foundImages.forEach(img => {
-    const tokens = estimateImageTokens(img.width, img.height);
-    totalTokens += tokens;
+  if (updatedCount > 0) {
+    // Recalculate total tokens
+    round.images.tokens = round.images.details.reduce((sum, img) => sum + img.tokens, 0);
+    round.images.estimated = round.images.details.some(img => img.estimated);
     
     if (debugMode) {
-      console.log(`🐛 📷 Image ${img.uuid}: ${img.width}×${img.height} = ${tokens} tokens`);
+      console.log(`🐛 📷 Updated ${updatedCount}/${requestUuids.length} images`);
     }
-  });
-  
-  // Update current round with precise values
-  const oldTokens = window.claudeTracker.currentRound.images.tokens;
-  window.claudeTracker.currentRound.images.tokens = totalTokens;
-  window.claudeTracker.currentRound.images.estimated = false;
-  window.claudeTracker.currentRound.images.details = foundImages.map(img => ({
-    width: img.width,
-    height: img.height,
-    tokens: estimateImageTokens(img.width, img.height),
-    uuid: img.uuid,
-    // Extended data for future API verification
-    estimatedTokens: estimateImageTokens(img.width, img.height),
-    apiTokens: null,  // Will be filled if we send to Anthropic API
-    formula: 'anthropic',
-    resized: Math.max(img.width, img.height) > 1568,
-    originalDimensions: { width: img.width, height: img.height },
-    timestamp: new Date().toISOString()
-  }));
-  
-  const tokenDiff = totalTokens - oldTokens;
-  
-  console.log('');
-  console.log('📷 IMAGE DIMENSIONS UPDATED!');
-  console.log(`   Found ${foundImages.length} image(s) with actual dimensions`);
-  console.log(`   Estimated: ~${oldTokens.toLocaleString()} tokens`);
-  console.log(`   Actual: ${totalTokens.toLocaleString()} tokens`);
-  console.log(`   Difference: ${tokenDiff > 0 ? '+' : ''}${tokenDiff.toLocaleString()} tokens`);
-  
-  if (foundImages.length > 1) {
-    console.log('   Per-image breakdown:');
-    foundImages.forEach((img, idx) => {
-      const tokens = estimateImageTokens(img.width, img.height);
-      console.log(`   [${idx + 1}] ${img.width}×${img.height} = ${tokens.toLocaleString()} tokens`);
-    });
   }
-  console.log('');
+  
+  return updatedCount > 0;
 }
 
-// === SAVE ROUND ===
-function saveRound() {
+// === SAVE ROUND (WITH ASYNC IMAGE DIMENSION FETCH) ===
+async function saveRound() {
   const round = window.claudeTracker.currentRound;
   
   if (!round.active) return;
   
+  // === PHASE 1: Try to fetch image dimensions if images present ===
+  let imageFetchSuccess = false;
+  if (round.images.count > 0 && round.images.estimated) {
+    console.log('');
+    console.log('🔄 Fetching image dimensions...');
+    
+    try {
+      // Wait a bit for backend to process
+      await new Promise(resolve => setTimeout(resolve, SETTINGS.IMAGE_TOKEN_ESTIMATION.fetchTimeout));
+      
+      const chatMessages = await fetchConversationData();
+      imageFetchSuccess = updateImageDimensionsFromMessages(chatMessages, round);
+      
+      if (imageFetchSuccess) {
+        console.log('✅ Image dimensions updated successfully!');
+      } else {
+        console.log('⚠️ Could not find image dimensions, using estimation');
+      }
+    } catch (error) {
+      console.log(`⚠️ Image dimension fetch failed: ${error.message}`);
+      console.log('   Using fallback estimation...');
+      
+      if (debugMode) {
+        console.log('🐛 ❌ Full error:', error);
+      }
+    }
+    console.log('');
+  }
+  
+  // === PHASE 2: Calculate final tokens ===
   const thinkingChars = round.thinking.text.length;
   const thinkingTokens = estimateTokens(thinkingChars, 'thinking');
   const assistantChars = round.assistant.text.length;
@@ -956,33 +1035,50 @@ window.resetTracker = function() {
 
 // === MANUAL IMAGE DIMENSION UPDATE ===
 window.updateImageDimensions = async function() {
-  // Get conversation ID from URL
-  const match = window.location.pathname.match(/\/chat\/([a-f0-9-]+)/);
-  if (!match) {
-    console.error('❌ Not in a chat conversation!');
+  const lastRound = window.claudeTracker.last;
+  
+  if (!lastRound) {
+    console.error('❌ No rounds saved yet!');
     return;
   }
   
-  const conversationId = match[1];
-  const orgId = '8a16f469-4329-4988-96da-c65439b48f0d'; // You may need to adjust this
-  const url = `https://claude.ai/api/organizations/${orgId}/chat_conversations/${conversationId}`;
+  if (!lastRound.images || lastRound.images.count === 0) {
+    console.error('❌ Last round has no images!');
+    return;
+  }
   
-  console.log('🔄 Fetching conversation data...');
-  console.log(`📡 URL: ${url}`);
+  if (!lastRound.images.estimated) {
+    console.log('ℹ️ Last round images already have precise dimensions');
+    return;
+  }
+  
+  console.log('🔄 Manually fetching image dimensions...');
   
   try {
-    const response = await fetch(url);
-    const data = await response.json();
+    const chatMessages = await fetchConversationData();
+    const updated = updateImageDimensionsFromMessages(chatMessages, lastRound);
     
-    if (data.chat_messages && Array.isArray(data.chat_messages)) {
-      console.log(`✅ Found ${data.chat_messages.length} messages`);
-      updateImageDimensionsFromResponse(data.chat_messages);
+    if (updated) {
+      console.log('');
+      console.log('✅ IMAGE DIMENSIONS UPDATED!');
+      console.log(`   Round #${lastRound.roundNumber}`);
+      console.log(`   Estimated: ~${lastRound.images.details[0].estimatedTokens * lastRound.images.count} tokens`);
+      console.log(`   Actual: ${lastRound.images.tokens} tokens`);
+      
+      if (lastRound.images.details.length > 1) {
+        console.log('   Per-image breakdown:');
+        lastRound.images.details.forEach((img, idx) => {
+          if (!img.estimated) {
+            console.log(`   [${idx + 1}] ${img.width}×${img.height} = ${img.tokens.toLocaleString()} tokens`);
+          }
+        });
+      }
+      console.log('');
     } else {
-      console.error('❌ No chat_messages in response');
-      console.log('Response keys:', Object.keys(data));
+      console.error('❌ Could not find matching images in conversation data');
     }
-  } catch(e) {
-    console.error('❌ Error fetching conversation:', e);
+  } catch (error) {
+    console.error(`❌ Error: ${error.message}`);
   }
 };
 
@@ -1068,18 +1164,22 @@ window.fetch = async function(url, options = {}) {
           if (body.files && body.files.length > 0) {
             console.log('🐛 📄 FILES FOUND:', body.files.length);
             body.files.forEach((file, index) => {
-              console.log(`🐛 📄 File [${index}]:`, {
-                keys: Object.keys(file),
-                type: file.type,
-                file_name: file.file_name,
-                media_type: file.media_type,
-                uuid: file.uuid || file.file_uuid || file.id,
-                extracted_content_length: file.extracted_content?.length,
-                content_length: file.content?.length
-              });
-              
-              // ALWAYS log the ENTIRE file object for inspection
-              console.log(`🐛 📄 File [${index}] FULL OBJECT:`, file);
+              if (typeof file === 'string') {
+                console.log(`🐛 📄 File [${index}]: UUID string = "${file}"`);
+              } else {
+                console.log(`🐛 📄 File [${index}]:`, {
+                  keys: Object.keys(file),
+                  type: file.type,
+                  file_name: file.file_name,
+                  media_type: file.media_type,
+                  uuid: file.uuid || file.file_uuid || file.id,
+                  extracted_content_length: file.extracted_content?.length,
+                  content_length: file.content?.length
+                });
+                
+                // ALWAYS log the ENTIRE file object for inspection
+                console.log(`🐛 📄 File [${index}] FULL OBJECT:`, file);
+              }
             });
           }
           
@@ -1104,10 +1204,47 @@ window.fetch = async function(url, options = {}) {
           window.claudeTracker.currentRound.images.tokens = imageTokens;
           window.claudeTracker.currentRound.images.estimated = true;
           
+          // Store UUIDs and metadata for later matching
+          // IMPORTANT: body.files can be either:
+          //   - Array of strings (the UUIDs directly)
+          //   - Array of objects with uuid/file_uuid/id properties
+          window.claudeTracker.currentRound.images.details = body.files.map((file, index) => {
+            let uuid;
+            if (typeof file === 'string') {
+              // File is already the UUID string
+              uuid = file;
+            } else {
+              // File is an object, extract UUID
+              uuid = file.uuid || file.file_uuid || file.id;
+            }
+            
+            return {
+              uuid: uuid,
+              fileIndex: index,
+              tokens: SETTINGS.IMAGE_TOKEN_ESTIMATION.fallbackTokensPerImage,
+              estimatedTokens: SETTINGS.IMAGE_TOKEN_ESTIMATION.fallbackTokensPerImage,
+              estimated: true,
+              timestamp: new Date().toISOString(),
+              conversationId: getConversationId(),
+              // These will be filled later if fetch succeeds
+              width: null,
+              height: null,
+              messageUuid: null,
+              messageIndex: null,
+              apiTokens: null,
+              verifiedByApi: false,
+              lastVerified: null,
+              formula: 'fallback',
+              resized: false,
+              originalDimensions: { width: null, height: null }
+            };
+          });
+          
           console.log(`📷 IMAGES: ${imageCount} × ~${SETTINGS.IMAGE_TOKEN_ESTIMATION.fallbackTokensPerImage} tk = ~${imageTokens.toLocaleString()} tokens (estimated)`);
           
           if (debugMode) {
-            console.log('🐛 💡 Image dimensions will be updated when response is received');
+            console.log('🐛 💡 Image dimensions will be fetched before round summary');
+            console.log('🐛 📋 Stored UUIDs:', window.claudeTracker.currentRound.images.details.map(d => d.uuid));
           }
         }
         
@@ -1216,30 +1353,6 @@ window.fetch = async function(url, options = {}) {
     }
   }
   
-  // === PROCESS CHAT CONVERSATION RESPONSE (for image dimensions) ===
-  // NOTE: /latest endpoint doesn't have chat_messages, need the full conversation endpoint
-  if (typeof url === 'string' && url.includes('/chat_conversations/') && !url.includes('/latest')) {
-    const contentType = response.headers.get('content-type') || '';
-    
-    if (contentType.includes('application/json')) {
-      try {
-        const clonedResponse = response.clone();
-        const data = await clonedResponse.json();
-        
-        // Extract image dimensions from chat_messages
-        if (data.chat_messages && Array.isArray(data.chat_messages)) {
-          updateImageDimensionsFromResponse(data.chat_messages);
-        } else if (debugMode) {
-          console.log('🐛 ℹ️ Response has no chat_messages array (might be /latest endpoint)');
-        }
-      } catch(e) {
-        if (debugMode) {
-          console.log('🐛 ⚠️ Could not parse chat conversation response:', e.message);
-        }
-      }
-    }
-  }
-  
   return response;
 };
 
@@ -1342,8 +1455,9 @@ async function processSSEStream(stream) {
                 console.log('');
               }
               
+              // Call saveRound (which now handles image dimension fetch)
               setTimeout(() => {
-                saveRound();
+                saveRound(); // Now async, handles everything
               }, SETTINGS.SAVE_DELAY_MS);
             }
             
@@ -1389,6 +1503,7 @@ console.log(`   Image tracking: ${SETTINGS.IMAGE_TOKEN_ESTIMATION.enabled ? 'ON'
 if (SETTINGS.IMAGE_TOKEN_ESTIMATION.enabled) {
   console.log(`      Formula: ${SETTINGS.IMAGE_TOKEN_ESTIMATION.useAnthropicFormula ? 'Anthropic (w×h)/750' : 'Fallback only'}`);
   console.log(`      Fallback: ${SETTINGS.IMAGE_TOKEN_ESTIMATION.fallbackTokensPerImage} tokens/image`);
+  console.log(`      Auto-fetch: YES (${SETTINGS.IMAGE_TOKEN_ESTIMATION.fetchTimeout}ms delay, ${SETTINGS.IMAGE_TOKEN_ESTIMATION.fetchRetries}× retry)`);
 }
 console.log('');
 console.log('📌 Token estimation: chars / rate (default 2.6, ~3-5% accuracy)');
