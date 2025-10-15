@@ -1161,6 +1161,18 @@ window.fetch = async function(url, options = {}) {
             });
           }
           
+          if (body.sync_sources && body.sync_sources.length > 0) {
+            console.log('🐛 🔗 SYNC SOURCES FOUND:', body.sync_sources.length);
+            body.sync_sources.forEach((source, index) => {
+              console.log(`🐛 🔗 Sync Source [${index}]:`, {
+                type: source.type,
+                current_size_bytes: source.status?.current_size_bytes,
+                current_file_count: source.status?.current_file_count,
+                filters: source.config?.filters
+              });
+            });
+          }
+          
           if (body.files && body.files.length > 0) {
             console.log('🐛 📄 FILES FOUND:', body.files.length);
             body.files.forEach((file, index) => {
@@ -1274,6 +1286,24 @@ window.fetch = async function(url, options = {}) {
             if (file.extracted_content) {
               docChars += file.extracted_content.length;
               docCount++;
+            }
+          });
+        }
+        
+        // === CHECK FOR SYNC SOURCES (GitHub, Google Drive, etc.) ===
+        if (body.sync_sources && Array.isArray(body.sync_sources)) {
+          body.sync_sources.forEach((source) => {
+            if (source.status && source.status.current_size_bytes) {
+              // Use byte size as char approximation (close enough for text files)
+              const sourceChars = source.status.current_size_bytes;
+              docChars += sourceChars;
+              
+              const fileCount = source.status.current_file_count || 1;
+              docCount += fileCount;
+              
+              if (debugMode) {
+                console.log(`🐛 📁 SYNC SOURCE (${source.type}): ${sourceChars.toLocaleString()} bytes, ${fileCount} file(s)`);
+              }
             }
           });
         }
