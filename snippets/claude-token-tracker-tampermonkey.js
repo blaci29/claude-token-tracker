@@ -1454,10 +1454,17 @@ window.fetch = async function(url, options = {}) {
               }
               
               if (fileList.length > 0) {
-                console.log(`       📋 Selected files:`);
+                console.log(`       📋 Selected paths:`);
                 fileList.forEach((filePath, fileIdx) => {
-                  console.log(`           [${fileIdx + 1}] ${filePath}`);
+                  const isDirectory = filePath.endsWith('/');
+                  const icon = isDirectory ? '📁' : '📄';
+                  const label = isDirectory ? ' (directory)' : '';
+                  console.log(`           [${fileIdx + 1}] ${icon} ${filePath}${label}`);
                 });
+                
+                if (fileList.some(p => p.endsWith('/'))) {
+                  console.log(`       💡 Directories expanded to ${fileCount} file(s) by backend`);
+                }
               }
               
               if (debugMode) {
@@ -1474,6 +1481,17 @@ window.fetch = async function(url, options = {}) {
           
           console.log('🔗 ═══════════════════════════════════════════════════');
           console.log('');
+          
+          // Save documents data to current round
+          if (docChars > 0) {
+            window.claudeTracker.currentRound.documents.chars = docChars;
+            window.claudeTracker.currentRound.documents.tokens = estimateTokens(docChars, 'userDocuments');
+            window.claudeTracker.currentRound.documents.count = docCount;
+            
+            if (debugMode) {
+              console.log(`🐛 📄 Documents saved to round: ${docChars} chars, ${docCount} files`);
+            }
+          }
           
           // Clear sync cache after use (one-time use per round)
           lastSyncSources = null;
@@ -1562,10 +1580,17 @@ window.fetch = async function(url, options = {}) {
               path => syncSource.config.filters.filters[path] === 'include'
             );
             if (fileList.length > 0) {
-              console.log(`       📋 Selected files:`);
+              console.log(`       📋 Selected paths:`);
               fileList.forEach((filePath, idx) => {
-                console.log(`           [${idx + 1}] ${filePath}`);
+                const isDirectory = filePath.endsWith('/');
+                const icon = isDirectory ? '📁' : '📄';
+                const label = isDirectory ? ' (directory)' : '';
+                console.log(`           [${idx + 1}] ${icon} ${filePath}${label}`);
               });
+              
+              if (fileList.some(p => p.endsWith('/'))) {
+                console.log(`       💡 Directories expanded to ${files} file(s) by backend`);
+              }
             }
           }
           
