@@ -358,11 +358,14 @@ function setupEventListeners() {
   // Reset data
   document.getElementById('reset-data').addEventListener('click', resetAllData);
   
-  // Open stats
-  document.getElementById('open-stats').addEventListener('click', (e) => {
-    e.preventDefault();
-    chrome.tabs.create({ url: chrome.runtime.getURL('src/stats/stats.html') });
-  });
+  // Open stats (optional button - only if exists)
+  const openStatsBtn = document.getElementById('open-stats');
+  if (openStatsBtn) {
+    openStatsBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      chrome.tabs.create({ url: chrome.runtime.getURL('src/stats/stats.html') });
+    });
+  }
   
   // Track changes
   const inputs = document.querySelectorAll('input, select');

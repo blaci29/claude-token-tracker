@@ -30,9 +30,8 @@ body {
 
 .header-content {
   display: flex;
-  align-items: center;
-  gap: var(--dt-space-md);
-  margin-bottom: var(--dt-space-sm);
+  flex-direction: column;
+  gap: var(--dt-space-sm);
 }
 
 .header-text {
@@ -53,6 +52,15 @@ body {
 }
 
 .header-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: var(--dt-space-md);
+}
+
+.header-actions-left,
+.header-actions-right {
   display: flex;
   gap: var(--dt-space-xs);
 }
