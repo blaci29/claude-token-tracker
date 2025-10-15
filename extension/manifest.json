@@ -39,6 +39,7 @@
       ],
       "css": [
         "src/assets/styles/common.css",
+        "src/assets/styles/devtools-theme.css",
         "src/content/overlay.css"
       ],
       "run_at": "document_start"
@@ -61,6 +62,7 @@
       "resources": [
         "src/stats/stats.html",
         "src/assets/styles/common.css",
+        "src/assets/styles/devtools-theme.css",
         "src/content/page-injected.js"
       ],
       "matches": ["https://claude.ai/*"]

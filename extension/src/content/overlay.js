@@ -317,84 +317,110 @@ const OverlayManager = {
     body.innerHTML = `
       <div class="ctt-chat-info">
         <div class="ctt-chat-title" title="${chat.title}">
-          📁 ${chat.title}
+          ${chat.title}
         </div>
-        <div class="ctt-chat-id">🔗 /${chat.id.substring(0, 12)}...</div>
+        <div class="ctt-chat-id">/${chat.id.substring(0, 12)}...</div>
       </div>
       
       <div class="ctt-section">
-        <div class="ctt-section-title">📊 Chat Summary (${stats.totalRounds || 0} rounds)</div>
+        <div class="ctt-section-title">
+          Chat Summary
+          <span class="ctt-section-badge">${stats.totalRounds || 0} rounds</span>
+        </div>
         <div class="ctt-stats-grid">
-          <div class="ctt-stat-row">
-            <div class="ctt-stat-label">👤 User</div>
-            <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.user?.chars)} ch · ~${Utils.formatLargeNumber(byType.user?.tokens)} tk</div>
+          <div class="ctt-stat-group-title">Input</div>
+          <div class="ctt-stat-group">
+            <div class="ctt-stat-row">
+              <div class="ctt-stat-label">User</div>
+              <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.user?.chars)} ch · ${Utils.formatLargeNumber(byType.user?.tokens)} tk</div>
+            </div>
+            <div class="ctt-stat-row">
+              <div class="ctt-stat-label">Docs</div>
+              <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.documents?.chars)} ch · ${Utils.formatLargeNumber(byType.documents?.tokens)} tk</div>
+            </div>
           </div>
-          <div class="ctt-stat-row">
-            <div class="ctt-stat-label">📄 Docs</div>
-            <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.documents?.chars)} ch · ~${Utils.formatLargeNumber(byType.documents?.tokens)} tk</div>
+          
+          <div class="ctt-stat-group-title">Output</div>
+          <div class="ctt-stat-group">
+            <div class="ctt-stat-row">
+              <div class="ctt-stat-label">Thinking</div>
+              <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.thinking?.chars)} ch · ${Utils.formatLargeNumber(byType.thinking?.tokens)} tk</div>
+            </div>
+            <div class="ctt-stat-row">
+              <div class="ctt-stat-label">Reply</div>
+              <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.assistant?.chars)} ch · ${Utils.formatLargeNumber(byType.assistant?.tokens)} tk</div>
+            </div>
+            <div class="ctt-stat-row">
+              <div class="ctt-stat-label">Tools</div>
+              <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.toolContent?.chars)} ch · ${Utils.formatLargeNumber(byType.toolContent?.tokens)} tk</div>
+            </div>
           </div>
-          <div class="ctt-stat-row">
-            <div class="ctt-stat-label">🧠 Thinking</div>
-            <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.thinking?.chars)} ch · ~${Utils.formatLargeNumber(byType.thinking?.tokens)} tk</div>
-          </div>
-          <div class="ctt-stat-row">
-            <div class="ctt-stat-label">🤖 Reply</div>
-            <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.assistant?.chars)} ch · ~${Utils.formatLargeNumber(byType.assistant?.tokens)} tk</div>
-          </div>
-          <div class="ctt-stat-row">
-            <div class="ctt-stat-label">🔧 Tools</div>
-            <div class="ctt-stat-value">${Utils.formatLargeNumber(byType.toolContent?.chars)} ch · ~${Utils.formatLargeNumber(byType.toolContent?.tokens)} tk</div>
-          </div>
+          
           <div class="ctt-stat-row ctt-stat-total">
-            <div class="ctt-stat-label">✨ TOTAL</div>
-            <div class="ctt-stat-value">${Utils.formatLargeNumber(stats.totalChars)} ch · ~${Utils.formatLargeNumber(stats.totalTokens)} tk</div>
+            <div class="ctt-stat-label">TOTAL</div>
+            <div class="ctt-stat-value">${Utils.formatLargeNumber(stats.totalChars)} ch · ${Utils.formatLargeNumber(stats.totalTokens)} tk</div>
           </div>
         </div>
       </div>
       
       ${lastRound ? `
         <div class="ctt-section">
-          <div class="ctt-section-title">🔄 Last Round (#${lastRound.roundNumber})</div>
-          <div class="ctt-round-info">
-            <div class="ctt-round-header">
-              <div class="ctt-round-number">⏱️ ${Utils.formatRelativeTime(lastRound.timestamp)}</div>
-              <div class="ctt-round-model">
-                🤖 ${lastRound.model}${lastRound.hasThinking ? ' + 🧠' : ''}
-              </div>
-            </div>
-            <div class="ctt-stats-grid">
-              <div class="ctt-stat-row">
-                <div class="ctt-stat-label">👤 User</div>
-                <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.user.chars)} ch · ~${Utils.formatLargeNumber(lastRound.user.tokens)} tk</div>
-              </div>
-              ${lastRound.documents && lastRound.documents.chars > 0 ? `
-                <div class="ctt-stat-row">
-                  <div class="ctt-stat-label">📄 Docs</div>
-                  <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.documents.chars)} ch · ~${Utils.formatLargeNumber(lastRound.documents.tokens)} tk</div>
-                </div>
-              ` : ''}
-              ${lastRound.thinking.chars > 0 ? `
-                <div class="ctt-stat-row">
-                  <div class="ctt-stat-label">🧠 Think</div>
-                  <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.thinking.chars)} ch · ~${Utils.formatLargeNumber(lastRound.thinking.tokens)} tk</div>
-                </div>
-              ` : ''}
-              <div class="ctt-stat-row">
-                <div class="ctt-stat-label">🤖 Reply</div>
-                <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.assistant.chars)} ch · ~${Utils.formatLargeNumber(lastRound.assistant.tokens)} tk</div>
-              </div>
-              ${lastRound.toolContent.chars > 0 ? `
-                <div class="ctt-stat-row">
-                  <div class="ctt-stat-label">🔧 Tools</div>
-                  <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.toolContent.chars)} ch · ~${Utils.formatLargeNumber(lastRound.toolContent.tokens)} tk</div>
-                </div>
-              ` : ''}
-              <div class="ctt-stat-row ctt-stat-total">
-                <div class="ctt-stat-label">✨ Total</div>
-                <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.total.chars)} ch · ~${Utils.formatLargeNumber(lastRound.total.tokens)} tk</div>
-              </div>
+          <div class="ctt-section-title">
+            Round #${lastRound.roundNumber}
+            ${lastRound.error ? '<span class="ctt-error-badge">⚠️ ERROR</span>' : ''}
+          </div>
+          <div class="ctt-round-header">
+            <div class="ctt-round-number">${Utils.formatRelativeTime(lastRound.timestamp)}</div>
+            <div class="ctt-round-model">
+              ${lastRound.model}${lastRound.hasThinking ? ' · thinking' : ''}
             </div>
           </div>
+          ${lastRound.error ? `
+            <div class="ctt-stats-grid" style="padding: var(--dt-space-md); color: var(--dt-text-secondary);">
+              ${lastRound.errorMessage || 'Request failed'}
+            </div>
+          ` : `
+            <div class="ctt-stats-grid">
+              <div class="ctt-stat-group-title">Input</div>
+              <div class="ctt-stat-group">
+                <div class="ctt-stat-row">
+                  <div class="ctt-stat-label">User</div>
+                  <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.user.chars)} ch · ${Utils.formatLargeNumber(lastRound.user.tokens)} tk</div>
+                </div>
+                ${lastRound.documents && lastRound.documents.chars > 0 ? `
+                  <div class="ctt-stat-row">
+                    <div class="ctt-stat-label">Docs</div>
+                    <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.documents.chars)} ch · ${Utils.formatLargeNumber(lastRound.documents.tokens)} tk</div>
+                  </div>
+                ` : ''}
+              </div>
+              
+              <div class="ctt-stat-group-title">Output</div>
+              <div class="ctt-stat-group">
+                ${lastRound.thinking.chars > 0 ? `
+                  <div class="ctt-stat-row">
+                    <div class="ctt-stat-label">Thinking</div>
+                    <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.thinking.chars)} ch · ${Utils.formatLargeNumber(lastRound.thinking.tokens)} tk</div>
+                  </div>
+                ` : ''}
+                <div class="ctt-stat-row">
+                  <div class="ctt-stat-label">Reply</div>
+                  <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.assistant.chars)} ch · ${Utils.formatLargeNumber(lastRound.assistant.tokens)} tk</div>
+                </div>
+                ${lastRound.toolContent.chars > 0 ? `
+                  <div class="ctt-stat-row">
+                    <div class="ctt-stat-label">Tools</div>
+                    <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.toolContent.chars)} ch · ${Utils.formatLargeNumber(lastRound.toolContent.tokens)} tk</div>
+                  </div>
+                ` : ''}
+              </div>
+              
+              <div class="ctt-stat-row ctt-stat-total">
+                <div class="ctt-stat-label">Total</div>
+                <div class="ctt-stat-value">${Utils.formatLargeNumber(lastRound.total.chars)} ch · ${Utils.formatLargeNumber(lastRound.total.tokens)} tk</div>
+              </div>
+            </div>
+          `}
         </div>
       ` : ''}
     `;
