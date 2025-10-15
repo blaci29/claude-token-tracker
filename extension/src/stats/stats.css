@@ -14,7 +14,7 @@ body {
 }
 
 .stats-container {
-  max-width: 1400px;
+  max-width: 500px;
   margin: 0 auto;
 }
 
@@ -317,7 +317,7 @@ select.time-input:focus {
   background: var(--dt-bg-primary);
   border: 1px solid var(--dt-border);
   border-radius: var(--dt-radius-md);
-  margin: var(--dt-space-md) var(--dt-space-lg);
+  margin: var(--dt-space-md) 0px;
   overflow: hidden;
 }
 
