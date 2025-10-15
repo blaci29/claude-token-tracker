@@ -200,10 +200,26 @@ async function handleImportFile(event) {
     
     // Validate data structure
     if (!data.chats || !data.settings || !data.timers) {
+      showNotification('Invalid data format - missing required fields', 'error');
       throw new Error('Invalid data format');
     }
     
-    if (!confirm('Import this data? This will overwrite all current data. This cannot be undone.')) {
+    // Show confirmation with details
+    const chatCount = Object.keys(data.chats || {}).length;
+    const confirmMessage = 
+      `⚠️ IMPORT WARNING ⚠️\n\n` +
+      `This will REPLACE ALL current data with:\n` +
+      `• ${chatCount} chat(s) from the import file\n` +
+      `• All settings from the import file\n` +
+      `• All timer data from the import file\n\n` +
+      `Your current data will be PERMANENTLY DELETED.\n\n` +
+      `Type "IMPORT" to confirm:`;
+    
+    const confirmation = prompt(confirmMessage);
+    
+    if (confirmation !== 'IMPORT') {
+      showNotification('Import cancelled', 'error');
+      event.target.value = ''; // Reset file input
       return;
     }
     
@@ -215,7 +231,10 @@ async function handleImportFile(event) {
     
     if (response.success) {
       await loadSettings();
-      showNotification('Data imported successfully!');
+      await updateStorageInfo();
+      showNotification(`Successfully imported ${chatCount} chat(s)!`);
+    } else {
+      showNotification('Import failed: ' + (response.error || 'Unknown error'), 'error');
     }
   } catch (error) {
     console.error('Error importing data:', error);
@@ -231,11 +250,21 @@ async function handleImportFile(event) {
  */
 async function resetAllData() {
   const confirmation = prompt(
-    'This will permanently delete ALL tracked data.\n\n' +
-    'Type "DELETE" to confirm:'
+    '⚠️ DANGER: PERMANENT DATA DELETION ⚠️\n\n' +
+    'This will DELETE ALL:\n' +
+    '• Chat history and conversations\n' +
+    '• Token usage statistics\n' +
+    '• Timer data (4-hour and weekly)\n' +
+    '• All tracked rounds\n\n' +
+    'Settings will be reset to defaults.\n\n' +
+    'THIS CANNOT BE UNDONE!\n\n' +
+    'Type "DELETE ALL" to confirm:'
   );
   
-  if (confirmation !== 'DELETE') {
+  if (confirmation !== 'DELETE ALL') {
+    if (confirmation !== null) { // User didn't cancel
+      showNotification('Reset cancelled - incorrect confirmation', 'error');
+    }
     return;
   }
   
@@ -247,11 +276,13 @@ async function resetAllData() {
     if (response.success) {
       await loadSettings();
       await updateStorageInfo();
-      showNotification('All data has been reset');
+      showNotification('All data has been permanently deleted');
+    } else {
+      showNotification('Reset failed: ' + (response.error || 'Unknown error'), 'error');
     }
   } catch (error) {
     console.error('Error resetting data:', error);
-    showNotification('Error resetting data', 'error');
+    showNotification('Error resetting data: ' + error.message, 'error');
   }
 }
 
@@ -264,13 +295,17 @@ async function updateStorageInfo() {
     const quota = chrome.storage.local.QUOTA_BYTES || 10485760; // 10MB default
     
     const usedMB = (bytesInUse / 1024 / 1024).toFixed(2);
-    const quotaMB = (quota / 1024 / 1024).toFixed(2);
-    const percentage = (bytesInUse / quota * 100).toFixed(1);
+    const quotaMB = (quota / 1024 / 1024).toFixed(0);
+    const percentage = ((bytesInUse / quota) * 100).toFixed(1);
     
     document.getElementById('storage-used').textContent = `${usedMB} MB (${percentage}%)`;
     document.getElementById('storage-quota').textContent = `${quotaMB} MB`;
+    
+    console.log('Storage info updated:', { usedMB, quotaMB, percentage });
   } catch (error) {
     console.error('Error getting storage info:', error);
+    document.getElementById('storage-used').textContent = 'Error';
+    document.getElementById('storage-quota').textContent = 'Error';
   }
 }
 
@@ -285,13 +320,13 @@ function showNotification(message, type = 'success') {
   // Set content
   text.textContent = message;
   
-  // Set icon based on type
+  // Set icon and color based on type
   if (type === 'error') {
     icon.textContent = '❌';
-    notification.style.background = 'var(--danger)';
+    notification.style.background = '#f44336'; // Red for errors
   } else {
     icon.textContent = '✅';
-    notification.style.background = 'var(--success)';
+    notification.style.background = '#00d26a'; // Green for success
   }
   
   // Show
