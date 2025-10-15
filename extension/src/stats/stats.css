@@ -21,7 +21,7 @@ body {
 /* ===== HEADER ===== */
 .stats-header {
   background: var(--dt-bg-primary);
-  border-bottom: 1px solid var(--dt-border);
+  border: 1px solid var(--dt-border);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -442,16 +442,110 @@ select.time-input:focus {
 }
 
 /* ===== DETAIL VIEW ===== */
-.chat-detail-header {
+#chat-detail-view {
+  padding: var(--dt-space-lg);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--dt-space-md);
+  margin-bottom: var(--dt-space-lg);
+}
+
+.back-button {
+  padding: var(--dt-space-xs) var(--dt-space-sm);
+  font-size: var(--dt-font-size-sm);
+  font-weight: var(--dt-font-weight-medium);
+  color: var(--dt-text-primary);
+  background: transparent;
+  border: 1px solid var(--dt-border);
+  border-radius: var(--dt-radius-sm);
+  cursor: pointer;
+  transition: var(--dt-transition);
+}
+
+.back-button:hover {
+  background: var(--dt-bg-hover);
+}
+
+/* Chat Metadata */
+.chat-metadata {
   background: var(--dt-bg-primary);
   border: 1px solid var(--dt-border);
   border-radius: var(--dt-radius-md);
   padding: var(--dt-space-md);
-  margin: var(--dt-space-md) var(--dt-space-lg);
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  margin-bottom: var(--dt-space-md);
+}
+
+.metadata-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
   gap: var(--dt-space-md);
+  padding: var(--dt-space-xs) 0;
+  font-size: var(--dt-font-size-sm);
+}
+
+.metadata-label {
+  color: var(--dt-text-secondary);
+  font-weight: var(--dt-font-weight-medium);
+}
+
+.metadata-value {
+  font-family: var(--dt-font-mono);
+  color: var(--dt-text-primary);
+}
+
+.metadata-link {
+  color: var(--dt-accent-blue);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metadata-link:hover {
+  text-decoration: underline;
+}
+
+/* Chat Summary */
+.chat-summary {
+  background: var(--dt-bg-primary);
+  border: 1px solid var(--dt-border);
+  border-radius: var(--dt-radius-md);
+  padding: var(--dt-space-md);
+  margin-bottom: var(--dt-space-md);
+}
+
+.summary-title {
+  font-size: var(--dt-font-size-md);
+  font-weight: var(--dt-font-weight-semibold);
+  color: var(--dt-text-primary);
+  margin: 0 0 var(--dt-space-md) 0;
+}
+
+.summary-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Rounds Container */
+.rounds-container {
+  background: var(--dt-bg-primary);
+  border: 1px solid var(--dt-border);
+  border-radius: var(--dt-radius-md);
+  overflow: hidden;
+}
+
+.rounds-title {
+  font-size: var(--dt-font-size-md);
+  font-weight: var(--dt-font-weight-semibold);
+  color: var(--dt-text-primary);
+  margin: 0;
+  padding: var(--dt-space-sm) var(--dt-space-md);
+  background: var(--dt-bg-secondary);
+  border-bottom: 1px solid var(--dt-divider);
 }
 
 .chat-info {
@@ -534,6 +628,10 @@ select.time-input:focus {
   border-bottom: none;
 }
 
+.round-detail.round-error {
+  background: rgba(217, 48, 37, 0.03);
+}
+
 .round-header {
   display: flex;
   justify-content: space-between;
@@ -545,11 +643,45 @@ select.time-input:focus {
   gap: var(--dt-space-sm);
 }
 
+.round-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--dt-space-sm);
+}
+
+.round-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--dt-space-sm);
+}
+
 .round-title {
   font-size: var(--dt-font-size-sm);
   font-weight: var(--dt-font-weight-semibold);
   color: var(--dt-text-primary);
   margin: 0;
+}
+
+.error-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--dt-space-xs);
+  padding: 2px 6px;
+  font-size: var(--dt-font-size-xs);
+  font-weight: var(--dt-font-weight-medium);
+  color: var(--dt-accent-red);
+  background: rgba(217, 48, 37, 0.1);
+  border-radius: var(--dt-radius-sm);
+}
+
+.error-message {
+  padding: var(--dt-space-sm);
+  margin-bottom: var(--dt-space-sm);
+  font-size: var(--dt-font-size-sm);
+  color: var(--dt-accent-red);
+  background: rgba(217, 48, 37, 0.05);
+  border: 1px solid rgba(217, 48, 37, 0.2);
+  border-radius: var(--dt-radius-sm);
 }
 
 .round-model {

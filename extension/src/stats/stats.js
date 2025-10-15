@@ -568,74 +568,145 @@ function renderChatDetail(chat) {
   // Chat metadata
   const metadata = `
     <div class="chat-metadata">
-      <div class="metadata-item">
-        <span class="metadata-label">Chat ID:</span>
-        <span class="metadata-value">${chat.id.substring(0, 12)}...</span>
+      <div class="metadata-row">
+        <span class="metadata-label">Chat ID</span>
+        <span class="metadata-value">${chat.id.substring(0, 16)}...</span>
       </div>
-      <div class="metadata-item">
-        <span class="metadata-label">Last Active:</span>
+      <div class="metadata-row">
+        <span class="metadata-label">URL</span>
+        <a href="${chat.url}" target="_blank" class="metadata-link">${chat.url}</a>
+      </div>
+      <div class="metadata-row">
+        <span class="metadata-label">Created</span>
+        <span class="metadata-value">${new Date(chat.created).toLocaleString()}</span>
+      </div>
+      <div class="metadata-row">
+        <span class="metadata-label">Last Active</span>
         <span class="metadata-value">${new Date(chat.lastActive).toLocaleString()}</span>
       </div>
-      <div class="metadata-item">
-        <span class="metadata-label">Total Rounds:</span>
-        <span class="metadata-value">${chat.rounds?.length || 0}</span>
-      </div>
-      <div class="metadata-item">
-        <span class="metadata-label">Total Tokens:</span>
-        <span class="metadata-value">${Utils.formatLargeNumber(chat.stats?.totalTokens || 0)}</span>
-      </div>
-      <div class="metadata-item">
-        <span class="metadata-label">Total Characters:</span>
-        <span class="metadata-value">${Utils.formatLargeNumber(chat.stats?.totalChars || 0)}</span>
+    </div>
+  `;
+  
+  // Chat summary (total stats)
+  const stats = chat.stats || {};
+  const byType = stats.byType || {};
+  const summary = `
+    <div class="chat-summary">
+      <h3 class="summary-title">Chat Summary</h3>
+      <div class="summary-stats">
+        <div class="stat-group-title">Input</div>
+        <div class="stat-group">
+          <div class="stat-row">
+            <span class="stat-label">User</span>
+            <span class="stat-value">${Utils.formatLargeNumber(byType.user?.chars || 0)} ch · ${Utils.formatLargeNumber(byType.user?.tokens || 0)} tk</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Docs</span>
+            <span class="stat-value">${Utils.formatLargeNumber(byType.documents?.chars || 0)} ch · ${Utils.formatLargeNumber(byType.documents?.tokens || 0)} tk</span>
+          </div>
+        </div>
+        
+        <div class="stat-group-title">Output</div>
+        <div class="stat-group">
+          <div class="stat-row">
+            <span class="stat-label">Thinking</span>
+            <span class="stat-value">${Utils.formatLargeNumber(byType.thinking?.chars || 0)} ch · ${Utils.formatLargeNumber(byType.thinking?.tokens || 0)} tk</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Reply</span>
+            <span class="stat-value">${Utils.formatLargeNumber(byType.assistant?.chars || 0)} ch · ${Utils.formatLargeNumber(byType.assistant?.tokens || 0)} tk</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Tools</span>
+            <span class="stat-value">${Utils.formatLargeNumber(byType.toolContent?.chars || 0)} ch · ${Utils.formatLargeNumber(byType.toolContent?.tokens || 0)} tk</span>
+          </div>
+        </div>
+        
+        <div class="stat-row stat-total">
+          <span class="stat-label">TOTAL</span>
+          <span class="stat-value">${Utils.formatLargeNumber(stats.totalChars || 0)} ch · ${Utils.formatLargeNumber(stats.totalTokens || 0)} tk</span>
+        </div>
+        
+        <div class="stat-row" style="margin-top: var(--dt-space-xs); padding-top: var(--dt-space-xs); border-top: 1px solid var(--dt-divider);">
+          <span class="stat-label">Total Rounds</span>
+          <span class="stat-value">${chat.rounds?.length || 0}</span>
+        </div>
       </div>
     </div>
   `;
   
   // Rounds list
   const rounds = chat.rounds || [];
-  const roundsList = rounds.map((round, index) => `
-    <div class="round-detail">
-      <div class="round-header">
-        <h3 class="round-title">Round #${index + 1}</h3>
-        <span class="round-model">${round.model || 'Unknown'}</span>
-        <span class="round-time">${Utils.formatRelativeTime(round.timestamp)}</span>
+  const roundsList = rounds.map((round, index) => {
+    const errorBadge = round.error ? '<span class="error-badge">⚠️ ERROR</span>' : '';
+    const errorMessage = round.error ? `
+      <div class="error-message">
+        ${round.errorMessage || 'Request failed'}
       </div>
-      <div class="round-stats">
-        <div class="stat-row">
-          <span class="stat-label">User</span>
-          <span class="stat-value">${Utils.formatLargeNumber(round.user?.chars || 0)} ch · ${Utils.formatLargeNumber(round.user?.tokens || 0)} tk</span>
+    ` : '';
+    
+    return `
+      <div class="round-detail ${round.error ? 'round-error' : ''}">
+        <div class="round-header">
+          <div class="round-header-left">
+            <h3 class="round-title">Round #${index + 1}</h3>
+            ${errorBadge}
+          </div>
+          <div class="round-header-right">
+            <span class="round-model">${round.model || 'Unknown'}</span>
+            <span class="round-time">${Utils.formatRelativeTime(round.timestamp)}</span>
+          </div>
         </div>
-        ${round.documents && round.documents.chars > 0 ? `
-          <div class="stat-row">
-            <span class="stat-label">Docs</span>
-            <span class="stat-value">${Utils.formatLargeNumber(round.documents.chars)} ch · ${Utils.formatLargeNumber(round.documents.tokens)} tk</span>
+        
+        ${errorMessage}
+        
+        ${!round.error || (round.user || round.assistant) ? `
+          <div class="round-stats">
+            <div class="stat-group-title">Input</div>
+            <div class="stat-group">
+              <div class="stat-row">
+                <span class="stat-label">User</span>
+                <span class="stat-value">${Utils.formatLargeNumber(round.user?.chars || 0)} ch · ${Utils.formatLargeNumber(round.user?.tokens || 0)} tk</span>
+              </div>
+              ${round.documents && round.documents.chars > 0 ? `
+                <div class="stat-row">
+                  <span class="stat-label">Docs</span>
+                  <span class="stat-value">${Utils.formatLargeNumber(round.documents.chars)} ch · ${Utils.formatLargeNumber(round.documents.tokens)} tk</span>
+                </div>
+              ` : ''}
+            </div>
+            
+            <div class="stat-group-title">Output</div>
+            <div class="stat-group">
+              ${round.thinking && round.thinking.chars > 0 ? `
+                <div class="stat-row">
+                  <span class="stat-label">Thinking</span>
+                  <span class="stat-value">${Utils.formatLargeNumber(round.thinking.chars)} ch · ${Utils.formatLargeNumber(round.thinking.tokens)} tk</span>
+                </div>
+              ` : ''}
+              <div class="stat-row">
+                <span class="stat-label">Reply</span>
+                <span class="stat-value">${Utils.formatLargeNumber(round.assistant?.chars || 0)} ch · ${Utils.formatLargeNumber(round.assistant?.tokens || 0)} tk</span>
+              </div>
+              ${round.toolContent && round.toolContent.chars > 0 ? `
+                <div class="stat-row">
+                  <span class="stat-label">Tools</span>
+                  <span class="stat-value">${Utils.formatLargeNumber(round.toolContent.chars)} ch · ${Utils.formatLargeNumber(round.toolContent.tokens)} tk</span>
+                </div>
+              ` : ''}
+            </div>
+            
+            <div class="stat-row stat-total">
+              <span class="stat-label">Total</span>
+              <span class="stat-value">${Utils.formatLargeNumber(round.total?.chars || 0)} ch · ${Utils.formatLargeNumber(round.total?.tokens || 0)} tk</span>
+            </div>
           </div>
         ` : ''}
-        ${round.thinking && round.thinking.chars > 0 ? `
-          <div class="stat-row">
-            <span class="stat-label">Thinking</span>
-            <span class="stat-value">${Utils.formatLargeNumber(round.thinking.chars)} ch · ${Utils.formatLargeNumber(round.thinking.tokens)} tk</span>
-          </div>
-        ` : ''}
-        <div class="stat-row">
-          <span class="stat-label">Reply</span>
-          <span class="stat-value">${Utils.formatLargeNumber(round.assistant?.chars || 0)} ch · ${Utils.formatLargeNumber(round.assistant?.tokens || 0)} tk</span>
-        </div>
-        ${round.toolContent && round.toolContent.chars > 0 ? `
-          <div class="stat-row">
-            <span class="stat-label">Tools</span>
-            <span class="stat-value">${Utils.formatLargeNumber(round.toolContent.chars)} ch · ${Utils.formatLargeNumber(round.toolContent.tokens)} tk</span>
-          </div>
-        ` : ''}
-        <div class="stat-row total-row">
-          <span class="stat-label">Total</span>
-          <span class="stat-value">${Utils.formatLargeNumber(round.total?.chars || 0)} ch · ${Utils.formatLargeNumber(round.total?.tokens || 0)} tk</span>
-        </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
   
-  content.innerHTML = metadata + '<div class="rounds-list">' + roundsList + '</div>';
+  content.innerHTML = metadata + summary + '<div class="rounds-container"><h3 class="rounds-title">All Rounds</h3><div class="rounds-list">' + roundsList + '</div></div>';
 }
 
 /**
