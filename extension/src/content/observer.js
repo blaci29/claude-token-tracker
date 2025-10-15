@@ -1,18 +1,18 @@
 /**
- * CLAUDE TOKEN TRACKER - INTERCEPTOR
- * Intercepts fetch requests and SSE streams from Claude.ai
+ * CLAUDE TOKEN TRACKER - API OBSERVER
+ * Observes API responses and SSE streams from Claude.ai
  */
 
-const Interceptor = {
+const ApiObserver = {
   
   // Current round data being collected
   currentRound: null,
   
   /**
-   * Initialize interceptor
+   * Initialize API observer
    */
   init() {
-    // Inject into page context (not content script isolated world)
+    // Inject into page context to observe fetch calls
     this.injectPageScript();
   },
   
@@ -249,8 +249,8 @@ const Interceptor = {
 // Initialize on load
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
-    Interceptor.init();
+    ApiObserver.init();
   });
 } else {
-  Interceptor.init();
+  ApiObserver.init();
 }

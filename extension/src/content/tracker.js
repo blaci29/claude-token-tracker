@@ -100,8 +100,8 @@ window.claudeTokenTracker = {
   version: CONSTANTS.VERSION,
   constants: CONSTANTS,
   utils: Utils,
-  interceptor: Interceptor,
-  observer: DOMObserver,
+  apiObserver: ApiObserver,
+  domObserver: DOMObserver,
   overlay: OverlayManager,
   
   // Helper functions for debugging

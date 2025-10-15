@@ -36,7 +36,7 @@
         "src/content/constants-inline.js",
         "src/content/utils-inline.js",
         "src/content/estimator-inline.js",
-        "src/content/interceptor.js",
+        "src/content/observer.js",
         "src/content/dom-observer.js",
         "src/content/overlay.js",
         "src/content/tracker.js"

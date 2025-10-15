@@ -56,6 +56,7 @@
           <div class="session-header">
             <span class="session-icon">⏱️</span>
             <h3 class="session-title">4-Hour Session</h3>
+            <button class="set-end-btn" data-timer="4h" title="Set end time">⚙️</button>
           </div>
           <div id="four-hour-content" class="session-content">
             <div class="session-info">
@@ -74,6 +75,21 @@
               <button id="start-4h" class="btn-action btn-primary">Start</button>
             </div>
           </div>
+          
+          <!-- 4h Timer Editor -->
+          <div id="4h-editor" class="time-editor hidden">
+            <div class="editor-label">Set duration:</div>
+            <div class="editor-inputs">
+              <input type="number" id="4h-hours" min="0" max="23" placeholder="0" class="time-input-small">
+              <span class="input-unit">hr</span>
+              <input type="number" id="4h-minutes" min="0" max="59" placeholder="0" class="time-input-small">
+              <span class="input-unit">min</span>
+            </div>
+            <div class="editor-actions">
+              <button class="btn-save-timer" data-timer="4h">Save</button>
+              <button class="btn-cancel-timer" data-timer="4h">Cancel</button>
+            </div>
+          </div>
         </div>
 
         <!-- Weekly Session -->
@@ -81,6 +97,7 @@
           <div class="session-header">
             <span class="session-icon">📅</span>
             <h3 class="session-title">Weekly Session</h3>
+            <button class="set-end-btn" data-timer="weekly" title="Set end time">⚙️</button>
           </div>
           <div id="weekly-content" class="session-content">
             <div class="session-info">
@@ -101,6 +118,27 @@
             </div>
             <div class="session-actions">
               <button id="start-weekly" class="btn-action btn-primary">Start</button>
+            </div>
+          </div>
+          
+          <!-- Weekly Timer Editor -->
+          <div id="weekly-editor" class="time-editor hidden">
+            <div class="editor-label">Set end time:</div>
+            <div class="editor-inputs editor-inputs-weekly">
+              <select id="weekly-day" class="day-select">
+                <option value="0">Sun</option>
+                <option value="1">Mon</option>
+                <option value="2">Tue</option>
+                <option value="3">Wed</option>
+                <option value="4">Thu</option>
+                <option value="5">Fri</option>
+                <option value="6">Sat</option>
+              </select>
+              <input type="time" id="weekly-time" value="09:59" class="time-input-weekly">
+            </div>
+            <div class="editor-actions">
+              <button class="btn-save-timer" data-timer="weekly">Save</button>
+              <button class="btn-cancel-timer" data-timer="weekly">Cancel</button>
             </div>
           </div>
         </div>
@@ -145,6 +183,10 @@
           </div>
 
           <p class="support-thanks">Thank you! 💙</p>
+          <p class="trademark-disclaimer">
+            UNOFFICIAL: Claude® is a registered trademark of Anthropic, PBC. 
+            This extension is not affiliated with or endorsed by Anthropic.
+          </p>
         </div>
       </aside>
     </div>

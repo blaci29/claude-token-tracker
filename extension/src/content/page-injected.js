@@ -1,6 +1,6 @@
 /**
- * INJECTED SCRIPT - Runs in page context (not content script isolated world)
- * This script intercepts fetch calls at the page level AND filters console spam
+ * CLAUDE TOKEN TRACKER - PAGE CONTEXT SCRIPT
+ * This script observes fetch calls at the page level AND filters console spam
  */
 
 (function() {
@@ -99,7 +99,7 @@
   };
   
   
-  // === FETCH INTERCEPTOR ===
+  // === FETCH OBSERVER ===
   const _originalFetch = window.fetch;
   
   window.fetch = async function(url, options = {}) {
@@ -230,7 +230,7 @@
         // Use console.log instead of warn to avoid red errors in Extensions tab
         console.log('🚨 Claude Token Tracker: prompt too long detected');
         
-        // Notify interceptor about the error
+        // Notify observer about the error
         window.postMessage({
           type: 'CLAUDE_TRACKER_ERROR',
           error: 'prompt_too_long',

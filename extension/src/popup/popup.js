@@ -311,6 +311,111 @@ function setupEventListeners() {
   document.getElementById('open-settings').addEventListener('click', () => {
     chrome.runtime.openOptionsPage();
   });
+  
+  // Timer editor toggle buttons
+  document.querySelectorAll('.set-end-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const timer = e.currentTarget.dataset.timer;
+      showTimerEditor(timer);
+    });
+  });
+  
+  // Timer editor save buttons
+  document.querySelectorAll('.btn-save-timer').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const timer = e.currentTarget.dataset.timer;
+      await saveTimerEnd(timer);
+    });
+  });
+  
+  // Timer editor cancel buttons
+  document.querySelectorAll('.btn-cancel-timer').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const timer = e.currentTarget.dataset.timer;
+      hideTimerEditor(timer);
+    });
+  });
+}
+
+/**
+ * Show timer editor
+ */
+function showTimerEditor(timer) {
+  const editorId = timer === '4h' ? '4h-editor' : 'weekly-editor';
+  const editor = document.getElementById(editorId);
+  const btn = document.querySelector(`.set-end-btn[data-timer="${timer}"]`);
+  
+  if (editor && btn) {
+    editor.classList.remove('hidden');
+    btn.style.display = 'none';
+  }
+}
+
+/**
+ * Hide timer editor
+ */
+function hideTimerEditor(timer) {
+  const editorId = timer === '4h' ? '4h-editor' : 'weekly-editor';
+  const editor = document.getElementById(editorId);
+  const btn = document.querySelector(`.set-end-btn[data-timer="${timer}"]`);
+  
+  if (editor && btn) {
+    editor.classList.add('hidden');
+    btn.style.display = '';
+  }
+}
+
+/**
+ * Save timer end time
+ */
+async function saveTimerEnd(timer) {
+  try {
+    if (timer === '4h') {
+      // 4-hour timer: get hours and minutes
+      const hours = parseInt(document.getElementById('4h-hours').value) || 0;
+      const minutes = parseInt(document.getElementById('4h-minutes').value) || 0;
+      const durationMs = (hours * 60 * 60 * 1000) + (minutes * 60 * 1000);
+      
+      await chrome.runtime.sendMessage({
+        type: 'SET_4H_TIMER_END',
+        data: { durationMs }
+      });
+      
+      // Clear inputs
+      document.getElementById('4h-hours').value = '';
+      document.getElementById('4h-minutes').value = '';
+      
+    } else if (timer === 'weekly') {
+      // Weekly timer: get day and time
+      const day = parseInt(document.getElementById('weekly-day').value);
+      const time = document.getElementById('weekly-time').value;
+      
+      // Calculate next occurrence of this day+time
+      const [hours, minutes] = time.split(':').map(Number);
+      const now = new Date();
+      const target = new Date();
+      
+      // Set to selected day
+      const currentDay = target.getDay();
+      const daysUntil = (day - currentDay + 7) % 7;
+      target.setDate(target.getDate() + (daysUntil === 0 ? 7 : daysUntil));
+      
+      // Set time
+      target.setHours(hours, minutes, 0, 0);
+      
+      await chrome.runtime.sendMessage({
+        type: 'SET_WEEKLY_TIMER_END',
+        data: { endTimestamp: target.getTime() }
+      });
+    }
+    
+    // Hide editor and reload data
+    hideTimerEditor(timer);
+    await loadTimerStatus();
+    
+  } catch (error) {
+    console.error(`Error saving ${timer} timer end:`, error);
+  }
 }
 
 /**
