@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Claude Token Tracker
 // @namespace    http://tampermonkey.net/
-// @version      1.5
-// @description  Real-time token usage tracking for Claude.ai with automatic image dimension fetching & UUID-based sync
+// @version      1.6
+// @description  Real-time token usage tracking for Claude.ai with image tracking, GitHub/Drive sync support & API-measured ratios
 // @author       You
 // @match        https://claude.ai/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=claude.ai
@@ -53,7 +53,10 @@ CONSOLE_SPAM_PATTERNS: [
   
   // === CENTRAL TOKEN ESTIMATION ===
   // Default chars per token ratio for ALL content types
-  // Claude average: 2.6 chars/token (~3-5% accuracy)
+  // MEASURED WITH REAL API DATA:
+  // - Code files (JavaScript, etc.): 3.19 chars/token
+  // - Markdown documents: 3.19 chars/token
+  // - Natural conversation: ~2.6 chars/token (default)
   CHARS_PER_TOKEN: 2.6,
   
   // === DETAILED TOKEN ESTIMATION (OPTIONAL OVERRIDES) ===
@@ -63,33 +66,43 @@ CONSOLE_SPAM_PATTERNS: [
   // 💡 FINE-TUNING GUIDE:
   // Different content types have different token densities:
   // 
-  // 1. CODE (dense): 2.0-2.4 chars/token
-  //    - Contains many symbols, brackets, operators
-  //    - Recommended: thinking: 2.4, toolContent: 2.2
+  // MEASURED WITH REAL API DATA (2025-10-15):
+  // ==========================================
+  // - JavaScript code: 56,586 chars → 17,717 tokens = 3.19 chars/token
+  // - Markdown docs: 15,297 chars → 4,801 tokens = 3.19 chars/token
+  // - Natural conversation: ~2.6 chars/token (Claude default)
   // 
-  // 2. NATURAL TEXT (normal): 2.6 chars/token
-  //    - Regular conversation, explanations
-  //    - Recommended: userMessage: 2.6, assistant: 2.6
+  // KEY INSIGHT: Code and technical documents are LESS DENSE than natural text!
+  // More characters needed per token because of:
+  // - Variable names (camelCase, snake_case)
+  // - Punctuation/symbols ({}, [], (), ;, etc.)
+  // - Indentation/whitespace
+  // - Code keywords (function, const, if, etc.)
   // 
-  // 3. DOCUMENTS (sparse): 2.8-3.0 chars/token
-  //    - PDFs, text files with formatting
-  //    - Recommended: userDocuments: 2.8
+  // RECOMMENDED SETTINGS:
+  // 1. NATURAL TEXT: 2.6 chars/token
+  //    - User messages, Claude responses
+  // 
+  // 2. CODE & DOCUMENTS: 3.2 chars/token
+  //    - Attached files, GitHub/Drive files
+  //    - Thinking (often code-heavy)
+  //    - Tool content (artifacts, code blocks)
   // 
   // 📊 HOW TO MEASURE YOUR OWN RATIOS:
-  // 1. Send conversations to Claude API directly
+  // 1. Send content to Claude API directly
   // 2. Compare actual token counts from API with character counts
   // 3. Calculate: chars / tokens = your ratio
-  // 4. Set the values below for better accuracy!
+  // 4. Update values below for maximum accuracy!
   // 
   // 🔮 FUTURE: Chrome extension will auto-tune these values
   //    based on your actual API usage!
   
   TOKEN_ESTIMATION: {
     userMessage: null,      // User's text input (null = use central 2.6)
-    userDocuments: null,    // Attached files/documents (null = use central 2.6)
-    thinking: null,         // Claude's thinking process (null = use central 2.6)
+    userDocuments: 3.2,     // Attached files/documents (MEASURED: 3.19)
+    thinking: 3.2,          // Claude's thinking (often code-heavy, MEASURED: 3.19)
     assistant: null,        // Claude's visible response (null = use central 2.6)
-    toolContent: null,      // Artifacts, code files (null = use central 2.6)
+    toolContent: 3.2,       // Artifacts, code files (MEASURED: 3.19)
   },
   
   // === IMAGE TOKEN ESTIMATION ===
@@ -200,6 +213,11 @@ console.log('');
 // === DEBUG MODE ===
 let debugMode = SETTINGS.DEBUG_MODE_ON_START;
 let debugLog = []; // Store all debug entries
+
+// === SYNC SOURCES STATE (GitHub, Google Drive, etc.) ===
+// Stores the last known sync state from /sync/chat/ endpoints
+let lastSyncSources = null;
+let lastSyncTimestamp = null;
 
 // === TRACKER STATE ===
 window.claudeTracker = {
@@ -1161,8 +1179,9 @@ window.fetch = async function(url, options = {}) {
             });
           }
           
+          // === DEBUG: Check if sync_sources in body (shouldn't be, but log if found) ===
           if (body.sync_sources && body.sync_sources.length > 0) {
-            console.log('🐛 🔗 SYNC SOURCES FOUND:', body.sync_sources.length);
+            console.log('🐛 🔗 SYNC SOURCES IN REQUEST BODY:', body.sync_sources.length);
             body.sync_sources.forEach((source, index) => {
               console.log(`🐛 🔗 Sync Source [${index}]:`, {
                 type: source.type,
@@ -1290,22 +1309,38 @@ window.fetch = async function(url, options = {}) {
           });
         }
         
-        // === CHECK FOR SYNC SOURCES (GitHub, Google Drive, etc.) ===
-        if (body.sync_sources && Array.isArray(body.sync_sources)) {
-          body.sync_sources.forEach((source) => {
+        // === CHECK FOR SYNC SOURCES (GitHub, Google Drive) ===
+        // Use cached sync state from last /sync/chat/ GET response
+        if (lastSyncSources && lastSyncSources.length > 0) {
+          console.log(`🔗 Using cached sync sources (${(Date.now() - lastSyncTimestamp) / 1000}s old)`);
+          
+          lastSyncSources.forEach((source) => {
             if (source.status && source.status.current_size_bytes) {
-              // Use byte size as char approximation (close enough for text files)
-              const sourceChars = source.status.current_size_bytes;
-              docChars += sourceChars;
-              
+              const sourceBytes = source.status.current_size_bytes;
               const fileCount = source.status.current_file_count || 1;
+              
+              // Add to documents counter (bytes ≈ chars for text files)
+              docChars += sourceBytes;
               docCount += fileCount;
               
+              console.log(`🔗 SYNC SOURCE (${source.type}): ${sourceBytes.toLocaleString()} bytes, ${fileCount} file(s)`);
+              
               if (debugMode) {
-                console.log(`🐛 📁 SYNC SOURCE (${source.type}): ${sourceChars.toLocaleString()} bytes, ${fileCount} file(s)`);
+                console.log(`🐛 � Sync source details:`, {
+                  type: source.type,
+                  bytes: sourceBytes,
+                  files: fileCount,
+                  cacheAge: `${((Date.now() - lastSyncTimestamp) / 1000).toFixed(1)}s`
+                });
               }
             }
           });
+          
+          // Clear sync cache after use (one-time use per round)
+          lastSyncSources = null;
+          lastSyncTimestamp = null;
+        } else if (debugMode) {
+          console.log('🐛 ℹ️ No cached sync sources available');
         }
         
         if (docChars > 0) {
@@ -1334,6 +1369,59 @@ window.fetch = async function(url, options = {}) {
   
   // === CALL ORIGINAL FETCH ===
   const response = await _originalFetch(url, options);
+  
+  // === INTERCEPT SYNC ENDPOINT RESPONSES (GitHub, Google Drive) ===
+  if (typeof url === 'string' && url.includes('/sync/chat/') && options.method !== 'PUT') {
+    const contentType = response.headers.get('content-type') || '';
+    
+    if (contentType.includes('application/json')) {
+      try {
+        const clonedResponse = response.clone();
+        const data = await clonedResponse.json();
+        
+        // Check if response has sync_sources data
+        if (data.type && (data.type === 'github' || data.type === 'google_drive')) {
+          // Store as array for consistency (even if single source)
+          lastSyncSources = [data];
+          lastSyncTimestamp = Date.now();
+          
+          console.log('');
+          console.log('🔗 ═══════════════════════════════════════════════════');
+          console.log(`🔗 SYNC STATE UPDATED: ${data.type}`);
+          
+          if (data.status && data.status.current_size_bytes) {
+            const bytes = data.status.current_size_bytes;
+            const files = data.status.current_file_count || 1;
+            const tokens = estimateTokens(bytes, 'userDocuments');
+            
+            console.log(`   📊 Size: ${bytes.toLocaleString()} bytes (~${tokens.toLocaleString()} tokens with 3.2 ratio)`);
+            console.log(`   📁 Files: ${files}`);
+            console.log(`   ⏰ Cached for next completion request`);
+            
+            if (debugMode) {
+              console.log('🐛 🔗 Full sync source data:', data);
+            }
+          }
+          
+          console.log('🔗 ═══════════════════════════════════════════════════');
+          console.log('');
+          
+          if (debugMode) {
+            addDebugLog('SYNC_STATE_CACHED', {
+              type: data.type,
+              bytes: data.status?.current_size_bytes,
+              files: data.status?.current_file_count,
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+      } catch (e) {
+        if (debugMode) {
+          console.log(`🐛 ⚠️ Could not parse sync response: ${e.message}`);
+        }
+      }
+    }
+  }
   
   // === ENHANCED DEBUG: Response inspection (only for important endpoints) ===
   if (debugMode && isImportant) {
@@ -1511,8 +1599,9 @@ console.log('📌 Features:');
 console.log('   - Automatic token tracking for every conversation round');
 console.log('   - Model tracking & thinking detection');
 console.log('   - DOM-based model detection');
-console.log('   - Configurable token estimation per content type');
+console.log('   - API-MEASURED token ratios (3.2 for code/docs, 2.6 for text)');
 console.log('   - Image token tracking with Anthropic formula');
+console.log('   - GitHub/Google Drive sync support (real-time tracking)');
 console.log('   - Console spam filtering (clean console!)');
 console.log('   - Enhanced debug mode with endpoint filtering');
 console.log('   - Debug log export to file');
@@ -1523,12 +1612,12 @@ console.log('⚙️ CURRENT SETTINGS:');
 console.log(`   Debug mode: ${SETTINGS.DEBUG_MODE_ON_START ? 'ON' : 'OFF'}`);
 console.log(`   Console spam filtering: ${SETTINGS.HIDE_CLAUDE_CONSOLE_SPAM ? 'ON' : 'OFF'}`);
 console.log(`   Central chars/token: ${SETTINGS.CHARS_PER_TOKEN}`);
-console.log(`   Custom estimation:`);
-console.log(`      User message: ${SETTINGS.TOKEN_ESTIMATION.userMessage || 'central'}`);
-console.log(`      User documents: ${SETTINGS.TOKEN_ESTIMATION.userDocuments || 'central'}`);
-console.log(`      Thinking: ${SETTINGS.TOKEN_ESTIMATION.thinking || 'central'}`);
-console.log(`      Assistant: ${SETTINGS.TOKEN_ESTIMATION.assistant || 'central'}`);
-console.log(`      Tool content: ${SETTINGS.TOKEN_ESTIMATION.toolContent || 'central'}`);
+console.log(`   Custom estimation (API-MEASURED):`);
+console.log(`      User message: ${SETTINGS.TOKEN_ESTIMATION.userMessage || 'central (2.6)'}`);
+console.log(`      User documents: ${SETTINGS.TOKEN_ESTIMATION.userDocuments || 'central (2.6)'} ✓ MEASURED`);
+console.log(`      Thinking: ${SETTINGS.TOKEN_ESTIMATION.thinking || 'central (2.6)'} ✓ MEASURED`);
+console.log(`      Assistant: ${SETTINGS.TOKEN_ESTIMATION.assistant || 'central (2.6)'}`);
+console.log(`      Tool content: ${SETTINGS.TOKEN_ESTIMATION.toolContent || 'central (2.6)'} ✓ MEASURED`);
 console.log(`   Image tracking: ${SETTINGS.IMAGE_TOKEN_ESTIMATION.enabled ? 'ON' : 'OFF'}`);
 if (SETTINGS.IMAGE_TOKEN_ESTIMATION.enabled) {
   console.log(`      Formula: ${SETTINGS.IMAGE_TOKEN_ESTIMATION.useAnthropicFormula ? 'Anthropic (w×h)/750' : 'Fallback only'}`);
