@@ -1530,6 +1530,36 @@ window.fetch = async function(url, options = {}) {
   // This fires when "Add files" button is clicked in the GitHub/Drive file picker
   const method = options.method || 'GET';
   
+  // Intercept POST /sync/chat - this is when "Add files" button is clicked
+  if (typeof url === 'string' && url.includes('/sync/chat') && method === 'POST' && !url.includes('/chat_conversations/')) {
+    if (debugMode) {
+      console.log('');
+      console.log('🐛 ═══════════════════════════════════════════════════');
+      console.log('🐛 📡 POST /sync/chat detected (Add files button)');
+      
+      if (options && options.body) {
+        try {
+          const body = typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
+          console.log('🐛 📤 REQUEST BODY:', body);
+          console.log('🐛 📦 Body keys:', Object.keys(body));
+          
+          if (body.sync_source_config) {
+            console.log('🐛 🔗 Sync config:', body.sync_source_config);
+            
+            if (body.sync_source_config.filters) {
+              console.log('🐛 📋 Filters:', body.sync_source_config.filters);
+            }
+          }
+        } catch (e) {
+          console.log('🐛 ⚠️ Could not parse POST body:', e.message);
+        }
+      }
+      
+      console.log('🐛 ═══════════════════════════════════════════════════');
+      console.log('');
+    }
+  }
+  
   // Intercept GET /sync/chat/{uuid} - this contains the ready sync state with file sizes
   if (typeof url === 'string' && url.includes('/sync/chat/') && method === 'GET' && !url.includes('/chat_conversations/')) {
     const contentType = response.headers.get('content-type') || '';
