@@ -212,50 +212,51 @@ function renderTokenBreakdown(roundIds, section) {
   }
   
   const opusSection = section === 'weekly' ? `
-    <div class="stat-row opus-row">
+    <div class="stat-row" style="margin-top: var(--dt-space-sm); padding-top: var(--dt-space-sm); border-top: 1px solid var(--dt-divider);">
       <span class="stat-label">Opus (separate)</span>
-      <span class="stat-value">${Utils.formatLargeNumber(opusTokens)}</span>
+      <span class="stat-value">${Utils.formatLargeNumber(opusTokens)} tk</span>
     </div>
   ` : '';
   
   return `
-    <div class="token-breakdown">
-      <div class="stat-row total-row">
-        <span class="stat-label">Total</span>
-        <span class="stat-value">${Utils.formatLargeNumber(stats.total.chars)} (~${Utils.formatLargeNumber(stats.total.tokens)})</span>
-      </div>
-
-      <div class="stat-divider"></div>
-      
+    <div class="stat-group-title">Input</div>
+    <div class="stat-group">
       <div class="stat-row">
-        <span class="stat-label">👤 User Messages</span>
-        <span class="stat-value">${Utils.formatLargeNumber(stats.byType.user.chars)} (~${Utils.formatLargeNumber(stats.byType.user.tokens)})</span>
+        <span class="stat-label">User</span>
+        <span class="stat-value">${Utils.formatLargeNumber(stats.byType.user.chars)} ch · ${Utils.formatLargeNumber(stats.byType.user.tokens)} tk</span>
       </div>
       <div class="stat-row">
-        <span class="stat-label">📄 Documents</span>
-        <span class="stat-value">${Utils.formatLargeNumber(stats.byType.documents.chars)} (~${Utils.formatLargeNumber(stats.byType.documents.tokens)})</span>
+        <span class="stat-label">Docs</span>
+        <span class="stat-value">${Utils.formatLargeNumber(stats.byType.documents.chars)} ch · ${Utils.formatLargeNumber(stats.byType.documents.tokens)} tk</span>
+      </div>
+    </div>
+    
+    <div class="stat-group-title">Output</div>
+    <div class="stat-group">
+      <div class="stat-row">
+        <span class="stat-label">Thinking</span>
+        <span class="stat-value">${Utils.formatLargeNumber(stats.byType.thinking.chars)} ch · ${Utils.formatLargeNumber(stats.byType.thinking.tokens)} tk</span>
       </div>
       <div class="stat-row">
-        <span class="stat-label">🧠 Thinking</span>
-        <span class="stat-value">${Utils.formatLargeNumber(stats.byType.thinking.chars)} (~${Utils.formatLargeNumber(stats.byType.thinking.tokens)})</span>
+        <span class="stat-label">Reply</span>
+        <span class="stat-value">${Utils.formatLargeNumber(stats.byType.assistant.chars)} ch · ${Utils.formatLargeNumber(stats.byType.assistant.tokens)} tk</span>
       </div>
       <div class="stat-row">
-        <span class="stat-label">🤖 Assistant</span>
-        <span class="stat-value">${Utils.formatLargeNumber(stats.byType.assistant.chars)} (~${Utils.formatLargeNumber(stats.byType.assistant.tokens)})</span>
+        <span class="stat-label">Tools</span>
+        <span class="stat-value">${Utils.formatLargeNumber(stats.byType.toolContent.chars)} ch · ${Utils.formatLargeNumber(stats.byType.toolContent.tokens)} tk</span>
       </div>
-      <div class="stat-row">
-        <span class="stat-label">🔧 Tools</span>
-        <span class="stat-value">${Utils.formatLargeNumber(stats.byType.toolContent.chars)} (~${Utils.formatLargeNumber(stats.byType.toolContent.tokens)})</span>
-      </div>
-      
-      ${opusSection}
-      
-      <div class="stat-divider"></div>
-      
-      <div class="stat-row">
-        <span class="stat-label">Rounds</span>
-        <span class="stat-value">${stats.successfulRounds}</span>
-      </div>
+    </div>
+    
+    <div class="stat-row stat-total">
+      <span class="stat-label">TOTAL</span>
+      <span class="stat-value">${Utils.formatLargeNumber(stats.total.chars)} ch · ${Utils.formatLargeNumber(stats.total.tokens)} tk</span>
+    </div>
+    
+    ${opusSection}
+    
+    <div class="stat-row" style="margin-top: var(--dt-space-xs); padding-top: var(--dt-space-xs); border-top: 1px solid var(--dt-divider);">
+      <span class="stat-label">Rounds</span>
+      <span class="stat-value">${stats.successfulRounds}</span>
     </div>
   `;
 }
@@ -596,39 +597,39 @@ function renderChatDetail(chat) {
     <div class="round-detail">
       <div class="round-header">
         <h3 class="round-title">Round #${index + 1}</h3>
-        <span class="round-model">🤖 ${round.model || 'Unknown'}</span>
+        <span class="round-model">${round.model || 'Unknown'}</span>
         <span class="round-time">${Utils.formatRelativeTime(round.timestamp)}</span>
       </div>
       <div class="round-stats">
         <div class="stat-row">
-          <span class="stat-label">👤 User</span>
-          <span class="stat-value">${Utils.formatLargeNumber(round.user?.chars || 0)} (~${Utils.formatLargeNumber(round.user?.tokens || 0)})</span>
+          <span class="stat-label">User</span>
+          <span class="stat-value">${Utils.formatLargeNumber(round.user?.chars || 0)} ch · ${Utils.formatLargeNumber(round.user?.tokens || 0)} tk</span>
         </div>
         ${round.documents && round.documents.chars > 0 ? `
           <div class="stat-row">
-            <span class="stat-label">📄 Documents</span>
-            <span class="stat-value">${Utils.formatLargeNumber(round.documents.chars)} (~${Utils.formatLargeNumber(round.documents.tokens)})</span>
+            <span class="stat-label">Docs</span>
+            <span class="stat-value">${Utils.formatLargeNumber(round.documents.chars)} ch · ${Utils.formatLargeNumber(round.documents.tokens)} tk</span>
           </div>
         ` : ''}
         ${round.thinking && round.thinking.chars > 0 ? `
           <div class="stat-row">
-            <span class="stat-label">🧠 Thinking</span>
-            <span class="stat-value">${Utils.formatLargeNumber(round.thinking.chars)} (~${Utils.formatLargeNumber(round.thinking.tokens)})</span>
+            <span class="stat-label">Thinking</span>
+            <span class="stat-value">${Utils.formatLargeNumber(round.thinking.chars)} ch · ${Utils.formatLargeNumber(round.thinking.tokens)} tk</span>
           </div>
         ` : ''}
         <div class="stat-row">
-          <span class="stat-label">🤖 Assistant</span>
-          <span class="stat-value">${Utils.formatLargeNumber(round.assistant?.chars || 0)} (~${Utils.formatLargeNumber(round.assistant?.tokens || 0)})</span>
+          <span class="stat-label">Reply</span>
+          <span class="stat-value">${Utils.formatLargeNumber(round.assistant?.chars || 0)} ch · ${Utils.formatLargeNumber(round.assistant?.tokens || 0)} tk</span>
         </div>
         ${round.toolContent && round.toolContent.chars > 0 ? `
           <div class="stat-row">
-            <span class="stat-label">🔧 Tools</span>
-            <span class="stat-value">${Utils.formatLargeNumber(round.toolContent.chars)} (~${Utils.formatLargeNumber(round.toolContent.tokens)})</span>
+            <span class="stat-label">Tools</span>
+            <span class="stat-value">${Utils.formatLargeNumber(round.toolContent.chars)} ch · ${Utils.formatLargeNumber(round.toolContent.tokens)} tk</span>
           </div>
         ` : ''}
         <div class="stat-row total-row">
-          <span class="stat-label">✨ Total</span>
-          <span class="stat-value">${Utils.formatLargeNumber(round.total?.chars || 0)} (~${Utils.formatLargeNumber(round.total?.tokens || 0)})</span>
+          <span class="stat-label">Total</span>
+          <span class="stat-value">${Utils.formatLargeNumber(round.total?.chars || 0)} ch · ${Utils.formatLargeNumber(round.total?.tokens || 0)} tk</span>
         </div>
       </div>
     </div>

@@ -4,9 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Claude Token Tracker - Statistics</title>
-  <link rel="stylesheet" href="../assets/styles/common.css">
+  <link rel="stylesheet" href="../assets/styles/devtools-theme.css">
   <link rel="stylesheet" href="stats.css">
-  <link rel="stylesheet" href="stats-addon.css">
 </head>
 <body>
   <div class="stats-container">
@@ -23,8 +22,8 @@
         </div>
       </div>
       <div class="header-actions">
-        <button id="export-btn" class="btn btn-ghost">📥 Export</button>
-        <button id="settings-btn" class="btn btn-ghost">⚙️ Settings</button>
+        <button id="export-btn" class="btn btn-ghost">Export</button>
+        <button id="settings-btn" class="btn btn-ghost">Settings</button>
       </div>
     </header>
 
@@ -34,7 +33,7 @@
       <!-- Current Session (4-Hour) -->
       <section class="timer-section">
         <div class="section-header-row">
-          <h2 class="section-title">⏱️ Current Session (4-Hour)</h2>
+          <h2 class="section-title">Current Session (4-Hour)</h2>
           <div class="timer-status" id="timer-4h-status">Loading...</div>
         </div>
         
@@ -59,7 +58,7 @@
       <!-- Weekly Session -->
       <section class="timer-section">
         <div class="section-header-row">
-          <h2 class="section-title">📅 Weekly Session</h2>
+          <h2 class="section-title">Weekly Session</h2>
           <div class="timer-status" id="timer-weekly-status">Loading...</div>
         </div>
         
@@ -90,7 +89,7 @@
       <!-- All Time -->
       <section class="timer-section">
         <div class="section-header-row">
-          <h2 class="section-title">🌍 All Time</h2>
+          <h2 class="section-title">All Time</h2>
         </div>
         
         <div class="timer-content">
@@ -103,7 +102,7 @@
       <!-- Conversations -->
       <section id="conversations-section" class="chat-list-section">
         <div class="section-header">
-          <h2 class="section-title">💬 Conversations</h2>
+          <h2 class="section-title">Conversations</h2>
           <div class="list-controls">
             <input type="text" id="search-chats" class="search-input" placeholder="Search chats...">
             <select id="sort-chats" class="select-input">
@@ -112,7 +111,7 @@
               <option value="rounds">Most Rounds</option>
             </select>
             <button id="delete-old-chats" class="delete-old-button" title="Delete chats older than 30 days">
-              🗑️ Delete 30+ days old
+              Delete 30+ days old
             </button>
           </div>
         </div>
@@ -130,20 +129,20 @@
         <div class="chat-info">
           <h2 class="chat-detail-title" id="detail-title">Chat Title</h2>
           <div class="chat-meta">
-            <span class="meta-item" id="detail-url">🔗 URL</span>
-            <span class="meta-item" id="detail-created">📅 Created</span>
-            <span class="meta-item" id="detail-active">🕐 Last active</span>
+            <span class="meta-item" id="detail-url">URL</span>
+            <span class="meta-item" id="detail-created">Created</span>
+            <span class="meta-item" id="detail-active">Last active</span>
           </div>
         </div>
         <div class="chat-actions">
-          <button id="export-chat-btn" class="btn btn-secondary">📥 Export Chat</button>
-          <button id="delete-chat-btn" class="btn btn-danger">🗑️ Delete</button>
+          <button id="export-chat-btn" class="btn btn-secondary">Export Chat</button>
+          <button id="delete-chat-btn" class="btn btn-danger">Delete</button>
         </div>
       </section>
 
       <!-- Chat Summary -->
       <section class="chat-summary-section">
-        <h3 class="section-title">📊 Chat Summary</h3>
+        <h3 class="section-title">Chat Summary</h3>
         <div class="chat-summary-grid" id="detail-summary">
           <!-- Populated by JS -->
         </div>
@@ -151,7 +150,7 @@
 
       <!-- Rounds List -->
       <section class="rounds-section">
-        <h3 class="section-title" id="rounds-title">🔄 Rounds (0)</h3>
+        <h3 class="section-title" id="rounds-title">Rounds (0)</h3>
         <div id="rounds-list" class="rounds-list">
           <!-- Populated by JS -->
         </div>
@@ -181,6 +180,6 @@
 
   <script src="../shared/constants.js"></script>
   <script src="../shared/utils.js"></script>
-  <script src="stats.js?v=2"></script>
+  <script src="stats.js?v=3"></script>
 </body>
 </html>
