@@ -303,7 +303,7 @@ function detectModelFromDOM() {
 }
 
 // === DEEP SEARCH FOR INTERESTING FIELDS ===
-function deepSearchObject(obj, searchKeys = ['token', 'usage', 'model', 'size', 'count', 'chars'], path = '', results = []) {
+function deepSearchObject(obj, searchKeys = ['token', 'usage', 'model', 'size', 'count', 'chars', 'image', 'media', 'width', 'height', 'base64', 'data', 'type', 'source'], path = '', results = []) {
   if (!obj || typeof obj !== 'object') return results;
   
   for (const key in obj) {
@@ -852,6 +852,41 @@ window.fetch = async function(url, options = {}) {
           if (interestingFields.length > 0) {
             console.log('🐛 🔍 INTERESTING FIELDS IN REQUEST:');
             console.table(interestingFields);
+          }
+          
+          // === DEBUG: Detailed attachments/files inspection ===
+          if (body.attachments && body.attachments.length > 0) {
+            console.log('🐛 📎 ATTACHMENTS FOUND:', body.attachments.length);
+            body.attachments.forEach((att, index) => {
+              console.log(`🐛 📎 Attachment [${index}]:`, {
+                keys: Object.keys(att),
+                type: att.type,
+                file_name: att.file_name,
+                media_type: att.media_type,
+                extracted_content_length: att.extracted_content?.length,
+                content_length: att.content?.length
+              });
+            });
+          }
+          
+          if (body.files && body.files.length > 0) {
+            console.log('🐛 📄 FILES FOUND:', body.files.length);
+            body.files.forEach((file, index) => {
+              console.log(`🐛 📄 File [${index}]:`, {
+                keys: Object.keys(file),
+                type: file.type,
+                file_name: file.file_name,
+                media_type: file.media_type,
+                uuid: file.uuid || file.file_uuid || file.id,
+                extracted_content_length: file.extracted_content?.length,
+                content_length: file.content?.length
+              });
+              
+              // Log the ENTIRE file object for image detection
+              if (file.uuid || file.file_uuid) {
+                console.log(`🐛 📄 File [${index}] FULL OBJECT:`, file);
+              }
+            });
           }
           
           addDebugLog('COMPLETION_REQUEST', {
