@@ -4,30 +4,32 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Claude Token Tracker - Settings</title>
-  <link rel="stylesheet" href="../assets/styles/common.css">
+  <link rel="stylesheet" href="../assets/styles/devtools-theme.css">
   <link rel="stylesheet" href="options.css">
 </head>
 <body>
   <div class="options-container">
     <!-- Header -->
-    <header class="options-header">
+    <header class="stats-header">
       <div class="header-content">
-        <h1 class="options-title">Claude Token Tracker</h1>
-        <p class="options-subtitle">Settings & Configuration</p>
+        <div class="header-text">
+          <h1 class="stats-title">Settings</h1>
+          <p class="stats-subtitle">Configuration & Preferences</p>
+        </div>
       </div>
       <div class="header-actions">
-        <button id="save-settings" class="btn btn-primary">💾 Save Settings</button>
-        <button id="reset-defaults" class="btn btn-ghost">↩️ Reset to Defaults</button>
+        <button id="save-settings" class="btn btn-primary">Save</button>
+        <button id="reset-defaults" class="btn btn-ghost">Reset Defaults</button>
       </div>
     </header>
 
     <div class="options-content">
       <!-- TOKEN ESTIMATION -->
       <section class="settings-section">
-        <div class="section-header">
-          <h2 class="section-title">📏 Token Estimation</h2>
-          <p class="section-description">Configure how character counts are converted to token estimates</p>
+        <div class="section-header-row">
+          <h2 class="section-title">Token Estimation</h2>
         </div>
+        <div class="section-description">Configure how character counts are converted to token estimates</div>
 
         <div class="settings-group">
           <div class="setting-item">
@@ -35,7 +37,7 @@
               <span class="label-text">Central Ratio</span>
               <span class="label-description">Default chars/token ratio for all content types</span>
             </label>
-            <input type="number" id="central-ratio" class="input" value="2.6" step="0.1" min="1" max="5">
+            <input type="number" id="central-ratio" class="input-field" value="2.6" step="0.1" min="1" max="5">
           </div>
 
           <div class="subsection">
@@ -44,42 +46,42 @@
 
             <div class="setting-item">
               <label class="setting-label">
-                <span class="label-text">👤 User Message</span>
+                <span class="label-text">User Message</span>
               </label>
-              <input type="number" id="ratio-user" class="input" placeholder="Use central" step="0.1" min="1" max="5">
+              <input type="number" id="ratio-user" class="input-field" placeholder="Use central" step="0.1" min="1" max="5">
             </div>
 
             <div class="setting-item">
               <label class="setting-label">
-                <span class="label-text">📄 User Documents</span>
+                <span class="label-text">User Documents</span>
               </label>
-              <input type="number" id="ratio-docs" class="input" placeholder="Use central" step="0.1" min="1" max="5">
+              <input type="number" id="ratio-docs" class="input-field" placeholder="Use central" step="0.1" min="1" max="5">
             </div>
 
             <div class="setting-item">
               <label class="setting-label">
-                <span class="label-text">🧠 Thinking</span>
+                <span class="label-text">Thinking</span>
               </label>
-              <input type="number" id="ratio-thinking" class="input" placeholder="Use central" step="0.1" min="1" max="5">
+              <input type="number" id="ratio-thinking" class="input-field" placeholder="Use central" step="0.1" min="1" max="5">
             </div>
 
             <div class="setting-item">
               <label class="setting-label">
-                <span class="label-text">🤖 Assistant</span>
+                <span class="label-text">Assistant</span>
               </label>
-              <input type="number" id="ratio-assistant" class="input" placeholder="Use central" step="0.1" min="1" max="5">
+              <input type="number" id="ratio-assistant" class="input-field" placeholder="Use central" step="0.1" min="1" max="5">
             </div>
 
             <div class="setting-item">
               <label class="setting-label">
-                <span class="label-text">🔧 Tool Content</span>
+                <span class="label-text">Tool Content</span>
               </label>
-              <input type="number" id="ratio-tool" class="input" placeholder="Use central" step="0.1" min="1" max="5">
+              <input type="number" id="ratio-tool" class="input-field" placeholder="Use central" step="0.1" min="1" max="5">
             </div>
           </div>
 
           <div class="info-box">
-            <p class="info-text">💡 <strong>Tips:</strong></p>
+            <p class="info-title">Tips</p>
             <p class="info-text">• Code-heavy content: 2.0-2.4 chars/token</p>
             <p class="info-text">• Regular text: ~2.6 chars/token</p>
             <p class="info-text">• Documents/PDFs: 2.8-3.0 chars/token</p>
@@ -87,14 +89,12 @@
         </div>
       </section>
 
-      <div class="divider"></div>
-
       <!-- OVERLAY SETTINGS -->
       <section class="settings-section">
-        <div class="section-header">
-          <h2 class="section-title">🎨 Overlay Settings</h2>
-          <p class="section-description">Configure the floating round viewer widget</p>
+        <div class="section-header-row">
+          <h2 class="section-title">Overlay Settings</h2>
         </div>
+        <div class="section-description">Configure the floating round viewer widget</div>
 
         <div class="settings-group">
           <div class="setting-item checkbox-item">
@@ -113,14 +113,12 @@
         </div>
       </section>
 
-      <div class="divider"></div>
-
       <!-- ADVANCED SETTINGS -->
       <section class="settings-section">
-        <div class="section-header">
-          <h2 class="section-title">🔧 Advanced</h2>
-          <p class="section-description">Developer and power user options</p>
+        <div class="section-header-row">
+          <h2 class="section-title">Advanced</h2>
         </div>
+        <div class="section-description">Developer and power user options</div>
 
         <div class="settings-group">
           <div class="setting-item checkbox-item">
@@ -141,34 +139,30 @@
         </div>
       </section>
 
-      <div class="divider"></div>
-
       <!-- DATA MANAGEMENT -->
       <section class="settings-section">
-        <div class="section-header">
-          <h2 class="section-title">💾 Data Management</h2>
-          <p class="section-description">Export, import, or reset your tracking data</p>
+        <div class="section-header-row">
+          <h2 class="section-title">Data Management</h2>
         </div>
+        <div class="section-description">Export, import, or reset your tracking data</div>
 
         <div class="settings-group">
           <div class="data-actions">
             <button id="export-data" class="btn btn-secondary">
-              <span>📥</span>
               <span>Export Data (JSON)</span>
             </button>
             <button id="import-data" class="btn btn-secondary">
-              <span>📤</span>
               <span>Import Data</span>
             </button>
             <button id="reset-data" class="btn btn-danger">
-              <span>🗑️</span>
               <span>Reset All Data</span>
             </button>
           </div>
           <input type="file" id="import-file" accept=".json" style="display: none;">
 
           <div class="info-box warning-box">
-            <p class="info-text">⚠️ <strong>Warning:</strong> Resetting will permanently delete all tracked conversations and statistics. This action cannot be undone.</p>
+            <p class="info-title">Warning</p>
+            <p class="info-text">Resetting will permanently delete all tracked conversations and statistics. This action cannot be undone.</p>
           </div>
 
           <div class="storage-info" id="storage-info">
@@ -177,53 +171,34 @@
         </div>
       </section>
 
-      <div class="divider"></div>
-
       <!-- SUPPORT SECTION -->
       <section class="settings-section support-section">
-        <div class="section-header">
-          <h2 class="section-title">☕ Support the Project</h2>
-          <p class="section-description">Enjoying Claude Token Tracker? Consider supporting its development!</p>
+        <div class="section-header-row">
+          <h2 class="section-title">Support the Project</h2>
         </div>
+        <div class="section-description">Enjoying Claude Token Tracker? Consider supporting its development!</div>
 
         <div class="support-content">
           <p class="support-text">
-            This extension is free and open-source. Your support helps me maintain and improve it with new features, bug fixes, and updates.
+            This extension is free and open-source. Your support helps maintain and improve it with new features, bug fixes, and updates.
           </p>
 
           <div class="support-buttons">
             <a href="https://ko-fi.com/yourname" target="_blank" class="btn btn-primary support-btn">
-              <span>☕</span>
               <span>Buy me a coffee</span>
             </a>
             <a href="https://github.com/yourname/claude-token-tracker" target="_blank" class="btn btn-ghost support-btn">
-              <span>⭐</span>
               <span>Star on GitHub</span>
             </a>
           </div>
 
-          <p class="support-thanks">Thank you for your support! 💙</p>
+          <p class="support-thanks">Thank you for your support!</p>
         </div>
       </section>
     </div>
 
-    <!-- Footer -->
-    <footer class="options-footer">
-      <div class="footer-content">
-        <p class="footer-text">Claude Token Tracker v1.0.0</p>
-        <div class="footer-links">
-          <a href="https://github.com/yourname/claude-token-tracker" target="_blank">GitHub</a>
-          <span>•</span>
-          <a href="#" id="open-stats">Statistics</a>
-          <span>•</span>
-          <a href="https://github.com/yourname/claude-token-tracker/issues" target="_blank">Report Issue</a>
-        </div>
-      </div>
-    </footer>
-
     <!-- Save notification -->
     <div id="save-notification" class="notification hidden">
-      <span class="notification-icon">✅</span>
       <span class="notification-text">Settings saved successfully!</span>
     </div>
   </div>
