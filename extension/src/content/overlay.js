@@ -57,14 +57,14 @@ const OverlayManager = {
       <div class="ctt-overlay-header">
         <div class="ctt-overlay-title">
           <span>💬</span>
-          <span>Chat Tracker</span>
+          <span>Claude Chat Token Tracker</span>
         </div>
         <div class="ctt-overlay-controls">
           <button class="ctt-overlay-btn" id="ctt-minimize" title="Minimize">
-            <span>−</span>
+            <span>-</span>
           </button>
           <button class="ctt-overlay-btn" id="ctt-close" title="Close">
-            <span>×</span>
+            <span>x</span>
           </button>
         </div>
       </div>

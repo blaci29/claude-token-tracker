@@ -130,12 +130,6 @@ function setupEventListeners() {
       renderConversations();
     });
   }
-  
-  // Delete old chats button
-  const deleteOldBtn = document.getElementById('delete-old-chats');
-  if (deleteOldBtn) {
-    deleteOldBtn.addEventListener('click', deleteOldChats);
-  }
 }
 
 /**
@@ -442,55 +436,6 @@ function exportData() {
   link.click();
   
   URL.revokeObjectURL(url);
-}
-
-/**
- * Delete chats older than 30 days
- */
-async function deleteOldChats() {
-  const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-  const chatsToDelete = [];
-  
-  // Find old chats
-  for (const [chatId, chat] of Object.entries(allChats)) {
-    const lastActive = new Date(chat.lastActive).getTime();
-    if (lastActive < thirtyDaysAgo) {
-      chatsToDelete.push({ id: chatId, title: chat.title });
-    }
-  }
-  
-  if (chatsToDelete.length === 0) {
-    alert('No chats older than 30 days found! ✅');
-    return;
-  }
-  
-  // Confirm deletion
-  const message = `Delete ${chatsToDelete.length} chat(s) older than 30 days?\n\n` +
-    chatsToDelete.slice(0, 5).map(c => `• ${c.title}`).join('\n') +
-    (chatsToDelete.length > 5 ? `\n... and ${chatsToDelete.length - 5} more` : '');
-  
-  if (!confirm(message)) {
-    return;
-  }
-  
-  // Delete chats one by one
-  for (const chat of chatsToDelete) {
-    try {
-      await chrome.runtime.sendMessage({
-        type: 'DELETE_CHAT',
-        data: { chatId: chat.id }
-      });
-      console.log(`🗑️ Deleted chat: ${chat.title}`);
-    } catch (error) {
-      console.error(`❌ Error deleting chat ${chat.id}:`, error);
-    }
-  }
-  
-  // Reload data and refresh UI
-  await loadData();
-  renderAll();
-  
-  alert(`✅ Deleted ${chatsToDelete.length} old chat(s)!`);
 }
 
 /**

@@ -164,44 +164,7 @@ export const TimerManager = {
     
     await StorageManager.saveTimers(timers);
     console.log(`📊 Round ${roundId} added to timers (${tokens} tokens)`);
-    
-    // KIKOMMENTEZVE - Nincs limit warning/notification
-    // Check for limit warnings
-    // await this._checkLimits(timers);
   },
-
-  /**
-   * KIKOMMENTEZVE - Nincs limit checking, csak mérünk!
-   * Check if limits are reached
-   */
-  /*
-  async _checkLimits(timers) {
-    // Calculate tokens from roundIds
-    const fourHourTokens = await this._calculateTokensFromRoundIds(timers.fourHour.roundIds || []);
-    const weeklyTokens = await this._calculateTokensFromRoundIds(timers.weekly.roundIds || []);
-    
-    const fourHourPercent = (fourHourTokens / CONSTANTS.TIMER_LIMITS.FOUR_HOUR) * 100;
-    const weeklyPercent = (weeklyTokens / CONSTANTS.TIMER_LIMITS.WEEKLY) * 100;
-
-    if (fourHourPercent >= 90) {
-      chrome.notifications.create({
-        type: 'basic',
-        iconUrl: 'src/assets/icons/icon48.png',
-        title: '4-Hour Limit Warning',
-        message: `You've used ${fourHourPercent.toFixed(0)}% of your 4-hour token limit.`
-      });
-    }
-
-    if (weeklyPercent >= 90) {
-      chrome.notifications.create({
-        type: 'basic',
-        iconUrl: 'src/assets/icons/icon48.png',
-        title: 'Weekly Limit Warning',
-        message: `You've used ${weeklyPercent.toFixed(0)}% of your weekly token limit.`
-      });
-    }
-  },
-  */
 
   /**
    * Set 4-hour timer end time (vésztartalék)

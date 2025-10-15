@@ -367,22 +367,6 @@ select.time-input:focus {
   cursor: pointer;
 }
 
-.delete-old-button {
-  padding: var(--dt-space-xs) var(--dt-space-sm);
-  font-size: var(--dt-font-size-sm);
-  font-weight: var(--dt-font-weight-medium);
-  color: var(--dt-accent-red);
-  background: transparent;
-  border: 1px solid var(--dt-accent-red);
-  border-radius: var(--dt-radius-sm);
-  cursor: pointer;
-  transition: var(--dt-transition);
-}
-
-.delete-old-button:hover {
-  background: rgba(217, 48, 37, 0.1);
-}
-
 /* Chat List */
 .chat-list {
   max-height: 600px;
