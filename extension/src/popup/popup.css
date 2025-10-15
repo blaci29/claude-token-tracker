@@ -54,10 +54,21 @@ body {
   border-radius: var(--dt-radius-sm);
 }
 
+.header-toggles {
+  display: flex;
+  gap: var(--dt-space-md);
+}
+
 .header-toggle {
   display: flex;
   align-items: center;
-  gap: var(--dt-space-sm);
+  gap: var(--dt-space-xs);
+}
+
+.toggle-label {
+  font-size: var(--dt-font-size-xs);
+  font-weight: var(--dt-font-weight-medium);
+  color: var(--dt-text-secondary);
 }
 
 .toggle-status {
@@ -67,6 +78,7 @@ body {
   font-family: var(--dt-font-mono);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  min-width: 28px;
 }
 
 .toggle-status.active {

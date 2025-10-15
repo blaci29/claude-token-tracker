@@ -38,6 +38,7 @@ async function loadSettings() {
     if (response.success) {
       currentSettings = response.data;
       updateTrackingToggle();
+      updateOverlayToggle();
     }
   } catch (error) {
     console.error('Error loading settings:', error);
@@ -78,6 +79,25 @@ function updateTrackingToggle() {
     trackingStatus.classList.add('active');
   } else {
     trackingStatus.classList.remove('active');
+  }
+}
+
+/**
+ * Update overlay toggle
+ */
+function updateOverlayToggle() {
+  if (!currentSettings) return;
+  
+  const overlayToggle = document.getElementById('overlay-toggle');
+  const overlayStatus = document.getElementById('overlay-status');
+  
+  overlayToggle.checked = currentSettings.overlayEnabled;
+  overlayStatus.textContent = currentSettings.overlayEnabled ? 'ON' : 'OFF';
+  
+  if (currentSettings.overlayEnabled) {
+    overlayStatus.classList.add('active');
+  } else {
+    overlayStatus.classList.remove('active');
   }
 }
 
@@ -235,6 +255,23 @@ function setupEventListeners() {
       }
     } catch (error) {
       console.error('Error toggling tracking:', error);
+    }
+  });
+  
+  // Overlay toggle
+  document.getElementById('overlay-toggle').addEventListener('change', async (e) => {
+    try {
+      await chrome.runtime.sendMessage({
+        type: CONSTANTS.MSG_TYPES.TOGGLE_OVERLAY,
+        data: { enabled: e.target.checked }
+      });
+      
+      if (currentSettings) {
+        currentSettings.overlayEnabled = e.target.checked;
+        updateOverlayToggle();
+      }
+    } catch (error) {
+      console.error('Error toggling overlay:', error);
     }
   });
   

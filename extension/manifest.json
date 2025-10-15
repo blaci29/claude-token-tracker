@@ -27,7 +27,11 @@
   
   "content_scripts": [
     {
-      "matches": ["https://claude.ai/*"],
+      "matches": [
+        "https://claude.ai/chat/*",
+        "https://claude.ai/project/*",
+        "https://claude.ai/new"
+      ],
       "js": [
         "src/content/constants-inline.js",
         "src/content/utils-inline.js",

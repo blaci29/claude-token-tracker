@@ -395,6 +395,24 @@ async function handleToggleOverlay(data) {
   
   console.log(`Overlay ${enabled ? 'enabled' : 'disabled'}`);
   
+  // Notify all Claude.ai chat/project tabs about the overlay toggle
+  const chatTabs = await chrome.tabs.query({ url: 'https://claude.ai/chat/*' });
+  const projectTabs = await chrome.tabs.query({ url: 'https://claude.ai/project/*' });
+  const newTabs = await chrome.tabs.query({ url: 'https://claude.ai/new' });
+  const tabs = [...chatTabs, ...projectTabs, ...newTabs];
+  
+  for (const tab of tabs) {
+    try {
+      await chrome.tabs.sendMessage(tab.id, {
+        type: CONSTANTS.MSG_TYPES.TOGGLE_OVERLAY,
+        data: { enabled }
+      });
+    } catch (error) {
+      // Tab might not have content script loaded yet, ignore
+      console.log(`Could not send overlay toggle to tab ${tab.id}`);
+    }
+  }
+  
   return { overlayEnabled: enabled };
 }
 
