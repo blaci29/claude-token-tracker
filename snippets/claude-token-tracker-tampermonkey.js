@@ -1151,6 +1151,14 @@ window.fetch = async function(url, options = {}) {
   // === INTERCEPT COMPLETION REQUESTS ===
   if (typeof url === 'string' && url.includes('/completion')) {
     
+    if (debugMode) {
+      console.log('🐛 ═══════════════════════════════════════════════════');
+      console.log('🐛 📡 COMPLETION REQUEST DETECTED');
+      console.log('🐛    options:', options ? 'exists' : 'null');
+      console.log('🐛    options.body:', options?.body ? `${typeof options.body} (${String(options.body).substring(0, 50)}...)` : 'null');
+      console.log('🐛 ═══════════════════════════════════════════════════');
+    }
+    
     if (options && options.body) {
       try {
         const body = JSON.parse(options.body);
@@ -1346,53 +1354,69 @@ window.fetch = async function(url, options = {}) {
           console.log('🐛    lastSyncTimestamp:', lastSyncTimestamp ? `${((Date.now() - lastSyncTimestamp) / 1000).toFixed(1)}s ago` : 'null');
         }
         
-        // PRIORITY 1: Check if sync_sources are directly in request body
+        // PRIORITY 1: Check if sync_sources are directly in request body (with full objects)
+        // Note: Most completion requests only send UUID strings, not full objects
+        let foundValidSyncSources = false;
+        
         if (body.sync_sources && Array.isArray(body.sync_sources) && body.sync_sources.length > 0) {
-          console.log('');
-          console.log('🔗 ═══════════════════════════════════════════════════');
-          console.log(`🔗 SYNC SOURCES IN REQUEST (${body.sync_sources.length} source(s))`);
+          // Check if array contains full objects (type, status) or just UUID strings
+          const firstItem = body.sync_sources[0];
+          const hasFullObjects = firstItem && typeof firstItem === 'object' && firstItem.type && firstItem.status;
           
-          body.sync_sources.forEach((source, idx) => {
-            if (source.type && source.status) {
-              const sourceBytes = source.status.current_size_bytes || 0;
-              const fileCount = source.status.current_file_count || 0;
-              const sourceTokens = estimateTokens(sourceBytes, 'userDocuments');
-              
-              // Add to documents counter (bytes ≈ chars for text files)
-              docChars += sourceBytes;
-              docCount += fileCount;
-              
-              console.log(`   [${idx + 1}] ${source.type.toUpperCase()}`);
-              console.log(`       📊 Size: ${sourceBytes.toLocaleString()} bytes (~${sourceTokens.toLocaleString()} tokens)`);
-              console.log(`       📁 Files: ${fileCount}`);
-              
-              // Show individual file details if available
-              if (source.status.files && Array.isArray(source.status.files) && source.status.files.length > 0) {
-                console.log(`       📋 File list:`);
-                source.status.files.forEach((file, fileIdx) => {
-                  const fileName = file.path || file.name || file.file_name || 'unknown';
-                  const fileSize = file.size || file.file_size || file.bytes || 0;
-                  const fileType = file.type || file.mime_type || file.file_type || 'unknown';
-                  console.log(`           [${fileIdx + 1}] ${fileName} (${fileSize.toLocaleString()} bytes, ${fileType})`);
-                });
+          if (hasFullObjects) {
+            foundValidSyncSources = true;
+            
+            console.log('');
+            console.log('🔗 ═══════════════════════════════════════════════════');
+            console.log(`🔗 SYNC SOURCES IN REQUEST (${body.sync_sources.length} source(s))`);
+            
+            body.sync_sources.forEach((source, idx) => {
+              if (source.type && source.status) {
+                const sourceBytes = source.status.current_size_bytes || 0;
+                const fileCount = source.status.current_file_count || 0;
+                const sourceTokens = estimateTokens(sourceBytes, 'userDocuments');
+                
+                // Add to documents counter (bytes ≈ chars for text files)
+                docChars += sourceBytes;
+                docCount += fileCount;
+                
+                console.log(`   [${idx + 1}] ${source.type.toUpperCase()}`);
+                console.log(`       📊 Size: ${sourceBytes.toLocaleString()} bytes (~${sourceTokens.toLocaleString()} tokens)`);
+                console.log(`       📁 Files: ${fileCount}`);
+                
+                // Show individual file details if available
+                if (source.status.files && Array.isArray(source.status.files) && source.status.files.length > 0) {
+                  console.log(`       📋 File list:`);
+                  source.status.files.forEach((file, fileIdx) => {
+                    const fileName = file.path || file.name || file.file_name || 'unknown';
+                    const fileSize = file.size || file.file_size || file.bytes || 0;
+                    const fileType = file.type || file.mime_type || file.file_type || 'unknown';
+                    console.log(`           [${fileIdx + 1}] ${fileName} (${fileSize.toLocaleString()} bytes, ${fileType})`);
+                  });
+                }
+                
+                if (debugMode) {
+                  console.log(`🐛 🔗 Sync source [${idx + 1}] from REQUEST:`, {
+                    type: source.type,
+                    bytes: sourceBytes,
+                    files: fileCount,
+                    tokens: sourceTokens
+                  });
+                }
               }
-              
-              if (debugMode) {
-                console.log(`🐛 🔗 Sync source [${idx}] from REQUEST:`, {
-                  type: source.type,
-                  bytes: sourceBytes,
-                  files: fileCount,
-                  tokens: sourceTokens
-                });
-              }
-            }
-          });
-          
-          console.log('🔗 ═══════════════════════════════════════════════════');
-          console.log('');
+            });
+            
+            console.log('🔗 ═══════════════════════════════════════════════════');
+            console.log('');
+          } else if (debugMode) {
+            console.log('🐛 ⚠️ body.sync_sources contains only UUID strings, not full objects');
+            console.log('🐛    Will use cached sync sources instead');
+          }
         }
+        
         // FALLBACK: Use cached sync state from /chat_conversations/ or /sync/chat/ response
-        else if (lastSyncSources && lastSyncSources.length > 0) {
+        // This is the PRIMARY method since completion requests only send UUIDs
+        if (!foundValidSyncSources && lastSyncSources && lastSyncSources.length > 0) {
           console.log('');
           console.log('🔗 ═══════════════════════════════════════════════════');
           console.log(`🔗 USING CACHED SYNC SOURCES (${((Date.now() - lastSyncTimestamp) / 1000).toFixed(1)}s old)`);
