@@ -1852,14 +1852,19 @@ window.fetch = async function(url, options = {}) {
             const selectedPaths = Object.keys(config.filters.filters || {});
             
             // Match files based on filters
+            // Normalize paths: remove leading "/" if present for comparison
             const matchedFiles = fullTree.filter(file => {
+              const normalizedFilePath = file.path.startsWith('/') ? file.path : '/' + file.path;
+              
               return selectedPaths.some(selectedPath => {
-                if (selectedPath.endsWith('/')) {
+                const normalizedSelectedPath = selectedPath.startsWith('/') ? selectedPath : '/' + selectedPath;
+                
+                if (normalizedSelectedPath.endsWith('/')) {
                   // Directory: check if file is inside
-                  return file.path.startsWith(selectedPath);
+                  return normalizedFilePath.startsWith(normalizedSelectedPath);
                 } else {
                   // Exact file match
-                  return file.path === selectedPath;
+                  return normalizedFilePath === normalizedSelectedPath;
                 }
               });
             });
@@ -2114,9 +2119,13 @@ window.fetch = async function(url, options = {}) {
                       const cacheKey = `${config.owner}/${config.repo}/${config.branch}`;
                       let fullTree = githubTreeCache[cacheKey];
                       
+                      console.log(`       🔍 Cache key: ${cacheKey}`);
+                      console.log(`       📦 Cache hit: ${!!fullTree} (${fullTree ? fullTree.length : 0} files)`);
+                      console.log(`       🎯 Filters:`, config.filters);
+                      
                       // === AUTO-FETCH TREE IF NOT CACHED ===
-                      if (!fullTree && config.filters && config.filters.filters) {
-                        console.log(`       🔄 Fetching file tree...`);
+                      if (!fullTree) {
+                        console.log(`       🔄 Cache empty, fetching file tree...`);
                         
                         try {
                           // Extract org ID from current URL
@@ -2156,22 +2165,48 @@ window.fetch = async function(url, options = {}) {
                       }
                       
                       // === SHOW FILE LIST ===
-                      if (fullTree && config.filters && config.filters.filters) {
-                        const selectedPaths = Object.keys(config.filters.filters);
+                      if (fullTree) {
+                        // Try different filter structures
+                        let selectedPaths = [];
+                        
+                        if (config.filters) {
+                          if (config.filters.filters) {
+                            // Structure: filters.filters = { "/path": "include", ... }
+                            selectedPaths = Object.keys(config.filters.filters);
+                            console.log(`       📋 Filter type: filters.filters (${selectedPaths.length} paths)`);
+                          } else if (typeof config.filters === 'object') {
+                            // Structure: filters = { "/path": "include", ... }
+                            selectedPaths = Object.keys(config.filters);
+                            console.log(`       📋 Filter type: filters (${selectedPaths.length} paths)`);
+                          }
+                        }
+                        
+                        if (selectedPaths.length === 0) {
+                          console.log(`       ⚠️ No filters found, showing all ${fullTree.length} files`);
+                          selectedPaths = fullTree.map(f => f.path);
+                        }
                         
                         // Match files based on filters
+                        // Normalize paths: remove leading "/" if present for comparison
                         const matchedFiles = fullTree.filter(file => {
+                          const normalizedFilePath = file.path.startsWith('/') ? file.path : '/' + file.path;
+                          
                           return selectedPaths.some(selectedPath => {
-                            if (selectedPath.endsWith('/')) {
-                              return file.path.startsWith(selectedPath);
+                            const normalizedSelectedPath = selectedPath.startsWith('/') ? selectedPath : '/' + selectedPath;
+                            
+                            if (normalizedSelectedPath.endsWith('/')) {
+                              // Directory: check if file is inside
+                              return normalizedFilePath.startsWith(normalizedSelectedPath);
                             } else {
-                              return file.path === selectedPath;
+                              // File: exact match
+                              return normalizedFilePath === normalizedSelectedPath;
                             }
                           });
                         });
                         
+                        console.log(`       📋 File list (${matchedFiles.length} matched):`);
+                        
                         if (matchedFiles.length > 0) {
-                          console.log(`       📋 File list:`);
                           matchedFiles.forEach((file, fileIdx) => {
                             const fileTokens = Math.ceil(file.size / SETTINGS.CHARS_PER_TOKEN);
                             const extension = file.path.split('.').pop().toLowerCase();
@@ -2179,7 +2214,13 @@ window.fetch = async function(url, options = {}) {
                             console.log(`           [${fileIdx + 1}] ${fileIcon} ${file.path}`);
                             console.log(`               💾 ${file.size.toLocaleString()} bytes (~${fileTokens.toLocaleString()} tokens)`);
                           });
+                        } else {
+                          console.log(`           ⚠️ No files matched the filters`);
+                          console.log(`           🔍 Selected paths:`, selectedPaths);
+                          console.log(`           📁 Available files:`, fullTree.slice(0, 5).map(f => f.path));
                         }
+                      } else {
+                        console.log(`       ⚠️ No tree cache available for ${cacheKey}`);
                       }
                     }
                   }

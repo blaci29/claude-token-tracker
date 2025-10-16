@@ -1,5 +1,8 @@
 # Claude Token Tracker - AI Agent Instructions
 
+Profi webfejlesztő frontend fejlesztő js és browser extension fejlesztő vagy. A feladatod, hogy a következő fájlokat karbantartsd és fejleszd.
+Velem mindig magyarul beszélj, de a kódban a kommentek leírások readme fájlok stb. mindig angolul legyenek.
+
 ## Project Overview
 A Chrome Manifest V3 extension that tracks Claude.ai token usage in real-time by intercepting API requests and SSE streams. Uses character-based token estimation and provides chat-based analytics with automatic time-window tracking.
 

@@ -16,3 +16,6 @@ Thumbs.db
 
 # Ignore environment files
 .env
+
+# Githu 
+.github/copilot-instructions.md
