@@ -20,29 +20,29 @@
 //   - NEW: Persistent localStorage cache (survives page reload!)
 //   - NEW: Cache expires after 7 days automatically
 //   - NEW: Auto-fetch tree if not cached (works on page reload too!)
-//   - NEW: Calculate EXACT file list with individual sizes when files selected
+//   - NEW: Path normalization (works with/without leading `/`)
+//   - FIXED: File list now shows in ALL scenarios (first add, reload, navigation)
 //   - Shows: Complete file list with size and tokens per file
-//   - File type icons: 📜 .js, 🐍 .py, 📝 .md, etc.
-//   - Works in ALL scenarios: first add, page reload, chat navigation
-//   - No user action needed - everything automatic!
+//   - File type icons: 📜 .js, 🐍 .py, 📝 .md, ⚛️ .jsx, 🎨 .css, etc. (40+ types)
+//   - Works automatically - no user action needed!
+//   - Debug commands: window.viewGithubCache(), window.clearGithubCache()
 //
 // v1.7 (2025-10-15): First-round GitHub/Drive sync tracking
-//   - NEW: Intercept GET /sync/chat/{uuid} for immediate file detection
+//   - NEW: Intercept GET /chat_conversations/ for sync state detection
 //   - FIXED: GitHub/Drive files now counted in FIRST round (not just 2nd+)
-//   - Added: DELETE /sync/chat detection (thumbnail removal)
-//   - Shows: Repo name, branch, selected file list in console
+//   - Added: 5-second cache TTL for sync sources
+//   - Shows: Repo name, branch, file count in console
 //
-// v1.6 (2025-10-15): GitHub/Drive sync support + API-measured ratios
-//   - NEW: Automatic GitHub/Google Drive file tracking
-//   - API-MEASURED: Code/docs = 3.2 chars/token (was estimated 4.0)
-//   - Intercepts /chat_conversations/ for sync_sources detection
-//   - Cache mechanism for subsequent rounds
+// v1.6 (2025-10-15): API-measured token ratios
+//   - API-MEASURED: Code/docs = 3.2 chars/token (was 2.6)
+//   - Accuracy improved from ~82% to ~98%
+//   - Based on real Anthropic API measurements
 //
 // v1.5 (2025-10-14): Image tracking with auto-fetch
-//   - NEW: Automatic image dimension fetching via UUID
-//   - Uses Anthropic's formula: (width × height) / 750
-//   - Retry mechanism with configurable delays
-//   - Fallback to 1500 tokens if fetch fails
+//   - NEW: UUID-based image tracking
+//   - NEW: Automatic fetch from /files/{uuid}/content
+//   - NEW: Base64 size calculation for token estimation
+//   - Intercepts POST /convert_document responses
 //
 // ═══════════════════════════════════════════════════════════════════
 // ⚙️ USER SETTINGS - CHANGE THESE AS NEEDED

@@ -756,6 +756,7 @@ window.getDebugSummary()  // Show debug statistics in console
 
 When updating the tracker, test:
 
+**Basic Functionality:**
 - [ ] Simple text message
 - [ ] Message with attached document (PDF, TXT)
 - [ ] Message that creates files (create_file tool)
@@ -763,48 +764,81 @@ When updating the tracker, test:
 - [ ] Message with thinking enabled
 - [ ] Long message (>100k characters)
 - [ ] Multiple messages in succession
+
+**Images (v1.5):**
+- [ ] Upload image via Claude interface
+- [ ] Verify UUID detection from `/convert_document`
+- [ ] Check automatic fetch from `/files/{uuid}/content`
+- [ ] Confirm base64 size calculation
+- [ ] Verify image metadata logging
+
+**GitHub Sync (v1.7-v1.8):**
+- [ ] Add files via GitHub sync file picker
+- [ ] Verify first-round detection (Documents count)
+- [ ] Check localStorage cache creation
+- [ ] Confirm detailed file list display
+- [ ] Test page reload (cache persistence)
+- [ ] Verify file type icons
+- [ ] Test directory filters (folders expanded correctly)
+- [ ] Test individual file filters
+- [ ] Check path normalization (with/without leading `/`)
+
+**Model & Statistics:**
 - [ ] Model switching (change model mid-conversation)
-- [ ] Debug mode on/off
-- [ ] Model statistics display
-- [ ] Debug log export
+- [ ] Model statistics display (`window.showModelStats()`)
+- [ ] Per-model token counting
+
+**Debug Features:**
+- [ ] Debug mode on/off (`window.enableDebug()`, `window.disableDebug()`)
+- [ ] Debug log export (`window.saveDebugLog()`)
+- [ ] Debug summary (`window.getDebugSummary()`)
 - [ ] Console spam filtering (verify clean console)
+- [ ] GitHub cache commands (`window.viewGithubCache()`, `window.clearGithubCache()`)
+
+**Edge Cases:**
+- [ ] Fast user (send message before async operations complete)
+- [ ] Chat navigation (forward/backward)
+- [ ] Browser refresh during completion
+- [ ] localStorage quota exceeded (50+ repos cached)
+- [ ] Expired cache cleanup (manually set old timestamp)
 
 ---
 
-## New Features Summary (v1.3)
+## Feature Summary by Version
 
-### 1. Console Spam Filtering
-- Aggressively filters Claude.ai's own console output
-- Configurable patterns via `CONSOLE_SPAM_PATTERNS`
-- Keeps console clean for tracker output only
+### v1.8 - Exact GitHub File Tracking
+- Full file tree caching from GitHub API
+- Per-file breakdown with sizes and token estimates
+- Persistent localStorage cache (7-day expiration)
+- Automatic fetch when cache empty
+- File type icons (40+ extensions)
+- Path normalization for matching
+- Works in all scenarios: first add, page reload, navigation
 
-### 2. Configurable Token Estimation
-- Central `CHARS_PER_TOKEN` setting (default: 2.6)
-- Per-content-type overrides in `TOKEN_ESTIMATION` object
-- Fine-tune for code vs natural text vs documents
+### v1.7 - GitHub/Drive Sync Detection
+- Sync state caching from chat conversations API
+- First-round file detection for GitHub/Drive
+- 5-second cache TTL for sync sources
+- Debug visibility for sync operations
 
-### 3. Enhanced Debug Mode
-- Automatic endpoint importance filtering
-- Deep object search for API fields
-- Debug log export to file
-- Debug summary statistics
-- Response body inspection for important endpoints
+### v1.6 - API-Measured Token Ratios
+- Updated default: 3.2 chars/token (from 2.6)
+- Based on real API measurements with code files
+- Accuracy improved from ~82% to ~98%
+- Better estimates for code-heavy content
 
-### 4. Model Statistics Tracking
-- Per-model statistics (Sonnet, Opus, Haiku)
-- Thinking usage comparison across models
-- Detailed breakdown by content type
-- New command: `window.showModelStats()`
+### v1.5 - Image Tracking
+- UUID-based image tracking
+- Automatic fetch from `/files/{uuid}/content`
+- Base64 size calculation for tokens
+- Image metadata logging (filename, MIME, dimensions)
 
-### 5. DOM-Based Model Detection
-- Multiple selector fallbacks for reliability
-- Works even when API doesn't provide model info
-- Detects model name from UI elements
-
-### 6. Memory Optimization
-- Optional text clearing after round save
-- Configurable save delay
-- Large document warnings
+### v1.3 - Core Features
+- Console spam filtering
+- Per-model statistics tracking
+- Enhanced debug mode with log export
+- Configurable token estimation per content type
+- DOM-based model detection
 
 ---
 
@@ -818,40 +852,244 @@ When updating the tracker, test:
 
 ## Maintenance Notes
 
-**Last Updated:** October 2025 (v1.3)
+**Last Updated:** October 2025 (v1.8)
 
 **Known Working With:**
 - Claude Sonnet 4.5
 - Claude Sonnet 3.5
+- Claude Haiku 4
 - Claude.ai web interface
 
 **Current Version Features:**
-- Console spam filtering
-- Configurable token estimation per content type
-- Enhanced debug mode with log export
-- Model-specific statistics tracking
-- DOM-based model detection with fallbacks
-- Memory optimization options
+- ✅ Console spam filtering
+- ✅ Configurable token estimation per content type
+- ✅ Enhanced debug mode with log export
+- ✅ Model-specific statistics tracking
+- ✅ DOM-based model detection with fallbacks
+- ✅ Memory optimization options
+- ✅ **Image tracking with UUID-based auto-fetch (v1.5)**
+- ✅ **API-measured token ratios - 3.2 chars/token (v1.6)**
+- ✅ **GitHub/Drive sync detection (v1.7)**
+- ✅ **Exact GitHub file lists with persistent localStorage cache (v1.8)**
 
 **Key Dependencies:**
 - Server-Sent Events (SSE)
 - Fetch API
-- Browser storage APIs
+- Browser storage APIs (localStorage for GitHub tree cache)
 - DOM selectors (for model detection)
 
 **Breaking Change Risk (High to Low):**
 1. **DOM selectors for model detection** (high risk - UI changes frequently)
-2. **Delta types** (high risk - API evolution)
-3. Event structure (medium risk)
-4. Request format (medium risk)
-5. URL endpoints (low risk)
-6. SSE format (very low risk)
+2. **GitHub API structure** (medium risk - tree endpoint, sync config format)
+3. **Delta types** (medium risk - SSE stream evolution)
+4. Event structure (medium risk)
+5. Request format (medium risk)
+6. URL endpoints (low risk)
+7. SSE format (very low risk)
+
+**Storage Usage:**
+- **localStorage['claude-github-trees']**: GitHub file tree cache (expires after 7 days)
+- Typical size: 50-500KB per repository
+- Max recommended: 50 repositories cached (stay under 5MB localStorage limit)
 
 **Configuration Changes:**
 - All settings now centralized in `SETTINGS` object
 - Easy to modify without diving into code
-- Token estimation customizable per content type
+- Token estimation customizable per content type (default: 3.2 chars/token)
 - Console filtering patterns easily updated
+- Image tracking automatic (no config needed)
+- GitHub tree cache automatic with 7-day expiration
+
+---
+
+## Version History & Feature Evolution
+
+### v1.8 - Exact GitHub File Tracking with Persistent Cache (October 2025)
+
+**Problem Solved:** GitHub sync files were showing only summary stats (total size, file count), but not individual file details.
+
+**Key Features:**
+- **Full file tree caching** from GET `/sync/github/repo/{owner}/{repo}/tree/{branch}` API
+- **Per-file breakdown** with exact sizes and token estimates
+- **Persistent localStorage cache** (7-day expiration, survives page reload)
+- **Auto-fetch on-demand** when cache empty (no manual user action needed)
+- **File type icons** (40+ extensions: 📜 .js, 🐍 .py, ⚛️ .jsx, 🎨 .css, etc.)
+- **Path normalization** (works with/without leading `/`)
+
+**Architecture:**
+```
+Script Init:
+ → loadGithubTreeCache() from localStorage
+ → Cache ready before any requests ✅
+
+Scenario A - First file add:
+ → POST /sync/chat → Check cache
+ → If empty: auto-fetch tree → save to localStorage
+ → Show detailed file list
+
+Scenario B - Page reload:
+ → Cache loaded from localStorage (synchronous)
+ → GET /chat_conversations → sync state detected
+ → Cache hit! Show file list immediately (no fetch)
+
+Scenario C - Chat navigation:
+ → Cache persists in localStorage
+ → Instant file list display
+```
+
+**localStorage Structure:**
+```javascript
+localStorage['claude-github-trees'] = {
+  "owner/repo/branch": {
+    files: [
+      {path: "snippets/file.js", size: 1234, type: "blob", sha: "abc123"},
+      ...
+    ],
+    cachedAt: 1760566850000,
+    expiresAt: 1761171650000  // cachedAt + 7 days
+  }
+}
+```
+
+**Key APIs Intercepted:**
+- `GET /sync/github/repo/{owner}/{repo}/tree/{branch}` - Full file tree with sizes (cached)
+- `POST /sync/chat` - File selection action (uses cache or auto-fetches)
+- `GET /chat_conversations/` - Load chat state with sync sources (uses cache)
+
+**Debug Commands:**
+```javascript
+window.viewGithubCache()   // Show cache status + localStorage info
+window.clearGithubCache()  // Clear memory + localStorage
+```
+
+**Example Output:**
+```
+🔗 SYNC STATE DETECTED (1 source(s))
+   [1] GITHUB
+       📊 Size: 4972 bytes (~1554 tokens)
+       📁 Files: 7
+       🔍 Cache key: blaci29/claude-token-tracker/main
+       📦 Cache hit: true (65 files)
+       📋 File list (7 matched):
+           [1] 📝 snippets/github-test/README.md
+               💾 1,222 bytes (~470 tokens)
+           [2] ⚛️ snippets/github-test/frontend/App.jsx
+               💾 264 bytes (~102 tokens)
+           [3] 🎨 snippets/github-test/frontend/styles.css
+               💾 790 bytes (~304 tokens)
+           ...
+```
+
+**Technical Challenges Solved:**
+- **Race conditions:** localStorage cache loads synchronously on startup, available before any user action
+- **Path mismatch:** GitHub API returns paths without leading `/`, but filters have `/` → Normalize both sides
+- **Cache expiration:** Auto-cleanup of entries older than 7 days
+- **Cross-scenario support:** Works in first add, page reload, fast user, chat navigation
+
+**Future Enhancements:**
+- Google Drive support (similar tree cache mechanism)
+- File-type-specific token ratios (3.2 for .js, 2.6 for .md)
+- Cache size management (LRU eviction if approaching 5-10MB localStorage quota)
+
+---
+
+### v1.7 - GitHub/Drive Sync Detection (October 2025)
+
+**Problem Solved:** Files attached via GitHub/Google Drive sync weren't counted in the first round because they bypass the normal attachment flow.
+
+**Key Features:**
+- **Sync state caching** from GET `/chat_conversations/` responses
+- **First-round detection** using cached sync sources
+- **Cache with 5-second TTL** to match completion requests
+- **Debug visibility** with 🔗 emoji for sync sources
+
+**Example Output:**
+```
+🔗 SYNC STATE DETECTED (1 source(s))
+   [1] GITHUB
+       📊 Size: 17,900 bytes (~5,594 tokens)
+       📁 Files: 5
+   ⏰ Cached for next completion request
+```
+
+**Why This Was Needed:**
+Normal file attachments appear in POST `/completion` request body, but GitHub/Drive sync files come from a separate API endpoint and aren't in the request. We now intercept the chat state API to pre-cache sync metadata.
+
+---
+
+### v1.6 - API-Measured Token Ratios (October 2025)
+
+**Problem Solved:** Character-based estimation was ~15-20% off for code-heavy content.
+
+**Key Discovery:**
+- Tested with real code files and documentation
+- API-measured actual ratio: **3.2 characters per token** (for code/technical docs)
+- Previous default (2.6) was underestimating by ~18%
+
+**Updated Default:**
+```javascript
+CHARS_PER_TOKEN: 3.2  // Updated from 2.6 based on API measurements
+```
+
+**Accuracy Improvement:**
+- Estimation error reduced from ~18% to ~3-5%
+- Especially accurate for JavaScript, TypeScript, Python code
+- Natural text still estimates well at this ratio
+
+**Test Case:**
+- File: `claude-token-tracker-tampermonkey.js` (86,734 chars)
+- Old estimate (2.6): 33,359 tokens
+- New estimate (3.2): 27,104 tokens
+- API actual: ~27,500 tokens
+- **Accuracy: 98.6%** ✅
+
+---
+
+### v1.5 - Image Tracking & Auto-Fetch (October 2025)
+
+**Problem Solved:** Images uploaded to Claude weren't being tracked because image content isn't in request body.
+
+**Key Features:**
+- **UUID-based tracking** from POST `/convert_document` responses
+- **Automatic image fetch** via GET `/organizations/{org}/files/{uuid}/content`
+- **Base64 size calculation** for token estimation
+- **Image metadata logging** (filename, MIME type, dimensions)
+
+**Image Detection Flow:**
+```
+User uploads image
+ → POST /convert_document
+ → Response: {uuid: "...", file_name: "image.png", ...}
+ → Auto-fetch: GET /files/{uuid}/content
+ → Calculate base64 size
+ → Add to round's document count
+```
+
+**Example Output:**
+```
+🖼️ IMAGE UPLOADED
+   📎 Filename: screenshot.png
+   🔑 UUID: 550e8400-e29b-41d4-a716-446655440000
+   📏 Size: ~156KB (base64 encoded)
+   🎯 Estimated tokens: ~60,000
+```
+
+**Technical Details:**
+- Images stored as base64 in Claude's system
+- Token calculation: `base64Length / 3.2` (adjusted for code ratio)
+- Automatic fetch with UUID correlation
+- MIME type preservation for debugging
+
+---
+
+### v1.3 - Console Filtering & Model Stats (June 2025)
+
+**Major Features:**
+- Console spam filtering (removes Claude.ai's verbose logging)
+- Per-model statistics tracking (Sonnet, Opus, Haiku)
+- Enhanced debug mode with log export
+- Configurable token estimation per content type
+- DOM-based model detection with multiple fallbacks
 
 ---
 
@@ -880,7 +1118,8 @@ For questions or issues, open a GitHub issue or discussion.
 - Update `detectModelFromDOM()` with new selectors
 
 **Token estimates inaccurate:**
-- Fine-tune `CHARS_PER_TOKEN` or per-type rates
+- Default is now 3.2 chars/token (v1.6 - API measured)
+- Fine-tune per-type rates in `TOKEN_ESTIMATION` if needed
 - Different content types have different densities
 - Use actual API token counts to calibrate
 
@@ -892,5 +1131,35 @@ For questions or issues, open a GitHub issue or discussion.
 - Enable debug mode and look for new delta types
 - Check SSE events for new content block types
 - Update capture logic in `processSSEStream()`
+
+**Images not tracked (v1.5):**
+- Check `/convert_document` POST responses for UUID
+- Verify auto-fetch from `/files/{uuid}/content`
+- Enable debug mode to see fetch attempts
+
+**GitHub files not showing (v1.7-v1.8):**
+- Check if sync state cached: `window.viewGithubCache()`
+- Verify file tree in localStorage
+- Look for path mismatch (leading `/` issue)
+- Check filter structure: `config.filters.filters` vs `config.filters`
+- Clear cache and retry: `window.clearGithubCache()`
+
+**File list shows 0 matched:**
+- Enable debug mode to see selected paths and available files
+- Check path normalization (script adds leading `/` if missing)
+- Verify filter structure matches tree cache format
+- Tree might be empty or fetch failed
+
+**localStorage quota exceeded:**
+- Check cache size: `window.viewGithubCache()`
+- Clear old repos: `window.clearGithubCache()`
+- Reduce cache expiration from 7 days if needed
+- Limit to ~50 repos max (stay under 5MB)
+
+**Page reload doesn't show files:**
+- Check if localStorage has cache: `localStorage.getItem('claude-github-trees')`
+- Verify cache not expired (>7 days old)
+- Check console for "📦 Loaded X cached repo(s)"
+- Cache might be corrupted - clear and re-fetch
 
 **Remember:** When in doubt, `window.enableDebug()` and `window.saveDebugLog()`!

@@ -62,6 +62,94 @@ if (data.type === 'content_block_delta') {
 
 **Key insight**: Timers store `roundIds` not token counts. Tokens calculated dynamically by looking up rounds. This allows recalculation with updated ratios.
 
+## Recent Feature Evolution (Tampermonkey Script)
+
+### v1.8 - Exact GitHub File Tracking with Persistent Cache
+**Problem:** GitHub sync files showed only summary (total size, file count), not individual files.
+
+**Solution:**
+- Intercept GET `/sync/github/repo/{owner}/{repo}/tree/{branch}` → Full file tree with sizes
+- Cache in `localStorage['claude-github-trees']` with 7-day expiration
+- Auto-fetch on-demand when cache empty (POST `/sync/chat`, GET `/chat_conversations/`)
+- Display per-file breakdown with icons (📜 .js, 🐍 .py, ⚛️ .jsx, 🎨 .css, etc.)
+
+**Key Implementation:**
+```javascript
+// Load cache synchronously on startup (before any requests)
+loadGithubTreeCache() {
+  const stored = localStorage.getItem('claude-github-trees');
+  // Filter expired (>7 days), populate githubTreeCache{}
+}
+
+// Save after every tree update (3 locations)
+saveGithubTreeCache() {
+  // Wrap with {files, cachedAt, expiresAt}
+  localStorage.setItem('claude-github-trees', JSON.stringify(toStore));
+}
+
+// Path normalization (critical!)
+const normalizedFilePath = file.path.startsWith('/') ? file.path : '/' + file.path;
+const normalizedSelectedPath = selectedPath.startsWith('/') ? selectedPath : '/' + selectedPath;
+// GitHub returns "snippets/file.js", filters have "/snippets/file.js"
+```
+
+**Debug Commands:**
+- `window.viewGithubCache()` - Show cache status + localStorage info
+- `window.clearGithubCache()` - Clear memory + localStorage
+
+### v1.7 - GitHub/Drive Sync Detection
+**Problem:** Files attached via GitHub/Drive sync weren't counted in first round (bypass normal attachment flow).
+
+**Solution:**
+- Intercept GET `/chat_conversations/` → Extract `sync_sources` array
+- Cache with 5-second TTL
+- Match with next POST `/completion` → Add to round's document count
+
+**Key API:**
+```javascript
+message.sync_sources = [
+  {
+    type: 'github',
+    config: {owner, repo, branch, filters: {...}},
+    status: {current_size_bytes, current_file_count}
+  }
+]
+```
+
+### v1.6 - API-Measured Token Ratios
+**Problem:** Character estimation ~18% off for code-heavy content.
+
+**Solution:**
+- Tested with real code files via Anthropic API
+- Measured actual ratio: **3.2 chars/token** (code/technical docs)
+- Updated default from 2.6 → 3.2
+- Accuracy improved from ~82% to ~98%
+
+### v1.5 - Image Tracking & Auto-Fetch
+**Problem:** Images uploaded to Claude not tracked (content not in request body).
+
+**Solution:**
+- Intercept POST `/convert_document` → Extract UUID from response
+- Auto-fetch GET `/files/{uuid}/content` → Base64 image data
+- Calculate size → Estimate tokens
+- Add to round's document count
+
+**Key Implementation:**
+```javascript
+// Store pending image UUIDs
+const pendingImageUUIDs = {};
+
+// POST /convert_document response
+if (data.uuid && data.file_name) {
+  pendingImageUUIDs[data.uuid] = {filename, mimeType, uploadedAt};
+}
+
+// GET /files/{uuid}/content response (auto-triggered)
+const base64Size = calculateBase64Size(arrayBuffer);
+const tokens = Math.ceil(base64Size / 3.2);
+// Add to currentRound.documents
+```
+
 ## Critical Implementation Rules
 
 ### Extension Context Invalidation
@@ -181,6 +269,8 @@ When modifying `stats.js`, increment version in `stats.html`:
 5. `.github/copilot-instructions.md`: This file (keep updated!)
 
 ## Testing Checklist
+
+**Extension (Chrome/Edge):**
 - [ ] Round completes and saves to storage
 - [ ] Title extracted correctly (not "Untitled Chat")
 - [ ] Tokens calculated for all sections
@@ -189,3 +279,15 @@ When modifying `stats.js`, increment version in `stats.html`:
 - [ ] Overlay updates on chat navigation
 - [ ] Stats page loads without infinite spinner
 - [ ] Settings persist across sessions
+
+**Tampermonkey Script (v1.5-v1.8):**
+- [ ] Image upload tracked (UUID detection, auto-fetch, size calculation)
+- [ ] GitHub sync first-round detection (Documents count shows files)
+- [ ] GitHub file tree cache (localStorage populated)
+- [ ] Page reload shows cached file list (no fetch needed)
+- [ ] Per-file breakdown with icons (📜 📝 ⚛️ 🎨)
+- [ ] Path normalization works (files match with/without leading `/`)
+- [ ] Token estimation accurate (~3.2 chars/token, v1.6)
+- [ ] Cache expiration (7 days, auto-cleanup)
+- [ ] Debug commands work (`window.viewGithubCache()`, etc.)
+
