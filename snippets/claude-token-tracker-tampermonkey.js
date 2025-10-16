@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Claude Token Tracker
 // @namespace    http://tampermonkey.net/
-// @version      1.7
+// @version      1.8
 // @description  Real-time token usage tracking for Claude.ai with image tracking, GitHub/Drive sync support & API-measured ratios
 // @author       You
 // @match        https://claude.ai/*
@@ -16,6 +16,16 @@
 // ═══════════════════════════════════════════════════════════════════
 // 📝 CHANGELOG
 // ═══════════════════════════════════════════════════════════════════
+// v1.8 (2025-10-16): Exact GitHub file tracking with persistent cache
+//   - NEW: Persistent localStorage cache (survives page reload!)
+//   - NEW: Cache expires after 7 days automatically
+//   - NEW: Auto-fetch tree if not cached (works on page reload too!)
+//   - NEW: Calculate EXACT file list with individual sizes when files selected
+//   - Shows: Complete file list with size and tokens per file
+//   - File type icons: 📜 .js, 🐍 .py, 📝 .md, etc.
+//   - Works in ALL scenarios: first add, page reload, chat navigation
+//   - No user action needed - everything automatic!
+//
 // v1.7 (2025-10-15): First-round GitHub/Drive sync tracking
 //   - NEW: Intercept GET /sync/chat/{uuid} for immediate file detection
 //   - FIXED: GitHub/Drive files now counted in FIRST round (not just 2nd+)
@@ -240,6 +250,106 @@ let debugLog = []; // Store all debug entries
 let lastSyncSources = null;
 let lastSyncTimestamp = null;
 
+// === GITHUB TREE CACHE ===
+// Stores full file trees from /sync/github/repo/{owner}/{repo}/tree/{branch}
+// Key format: "owner/repo/branch"
+// Value: Array of {path, size, type, sha}
+let githubTreeCache = {};
+
+// === LOAD GITHUB TREE CACHE FROM LOCALSTORAGE ===
+function loadGithubTreeCache() {
+  try {
+    const stored = localStorage.getItem('claude-github-trees');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      const now = Date.now();
+      
+      // Filter out expired entries (older than 7 days)
+      const validEntries = {};
+      let expiredCount = 0;
+      
+      Object.keys(parsed).forEach(key => {
+        const entry = parsed[key];
+        const expiresAt = entry.expiresAt || 0;
+        
+        if (expiresAt > now) {
+          validEntries[key] = entry.files;
+        } else {
+          expiredCount++;
+        }
+      });
+      
+      githubTreeCache = validEntries;
+      
+      if (Object.keys(validEntries).length > 0) {
+        console.log(`📦 Loaded ${Object.keys(validEntries).length} cached GitHub tree(s) from storage`);
+        if (expiredCount > 0) {
+          console.log(`   🗑️ Removed ${expiredCount} expired cache(s)`);
+        }
+      }
+      
+      // Save back to remove expired entries
+      if (expiredCount > 0) {
+        saveGithubTreeCache();
+      }
+    }
+  } catch (e) {
+    console.warn('⚠️ Could not load GitHub tree cache from localStorage:', e.message);
+    githubTreeCache = {};
+  }
+}
+
+// === SAVE GITHUB TREE CACHE TO LOCALSTORAGE ===
+function saveGithubTreeCache() {
+  try {
+    const toStore = {};
+    const now = Date.now();
+    const expirationTime = 7 * 24 * 60 * 60 * 1000; // 7 days
+    
+    Object.keys(githubTreeCache).forEach(key => {
+      toStore[key] = {
+        files: githubTreeCache[key],
+        cachedAt: now,
+        expiresAt: now + expirationTime
+      };
+    });
+    
+    localStorage.setItem('claude-github-trees', JSON.stringify(toStore));
+  } catch (e) {
+    console.warn('⚠️ Could not save GitHub tree cache to localStorage:', e.message);
+  }
+}
+
+// === CLEAR EXPIRED CACHE ENTRIES ===
+function clearExpiredGithubCache() {
+  const stored = localStorage.getItem('claude-github-trees');
+  if (!stored) return;
+  
+  try {
+    const parsed = JSON.parse(stored);
+    const now = Date.now();
+    let expiredCount = 0;
+    
+    Object.keys(parsed).forEach(key => {
+      const entry = parsed[key];
+      if (entry.expiresAt && entry.expiresAt < now) {
+        delete githubTreeCache[key];
+        expiredCount++;
+      }
+    });
+    
+    if (expiredCount > 0) {
+      console.log(`🗑️ Cleared ${expiredCount} expired GitHub tree cache(s)`);
+      saveGithubTreeCache();
+    }
+  } catch (e) {
+    console.warn('⚠️ Error clearing expired cache:', e.message);
+  }
+}
+
+// Load cache on startup
+loadGithubTreeCache();
+
 // === TRACKER STATE ===
 window.claudeTracker = {
   global: {
@@ -327,6 +437,46 @@ function estimateImageTokens(width, height) {
   }
   
   return tokens;
+}
+
+// === FILE ICON HELPER ===
+function getFileIcon(extension) {
+  const iconMap = {
+    // Code
+    'js': '📜', 'jsx': '⚛️', 'ts': '📘', 'tsx': '⚛️',
+    'py': '🐍', 'java': '☕', 'cpp': '⚙️', 'c': '⚙️', 'h': '⚙️',
+    'cs': '🎯', 'php': '🐘', 'rb': '💎', 'go': '🐹', 'rs': '🦀',
+    'swift': '🔶', 'kt': '🟣', 'scala': '🔺',
+    
+    // Web
+    'html': '🌐', 'htm': '🌐', 'css': '🎨', 'scss': '🎨', 'sass': '🎨',
+    'vue': '💚', 'svelte': '🧡',
+    
+    // Config/Data
+    'json': '📋', 'xml': '📋', 'yaml': '📋', 'yml': '📋', 'toml': '📋',
+    'ini': '⚙️', 'conf': '⚙️', 'config': '⚙️',
+    'env': '🔐',
+    
+    // Docs
+    'md': '📝', 'txt': '📄', 'pdf': '📕', 'doc': '📘', 'docx': '📘',
+    'rtf': '📄',
+    
+    // Shell
+    'sh': '🐚', 'bash': '🐚', 'zsh': '🐚', 'fish': '🐚',
+    'bat': '⚡', 'cmd': '⚡', 'ps1': '💻',
+    
+    // Images
+    'png': '🖼️', 'jpg': '🖼️', 'jpeg': '🖼️', 'gif': '🖼️', 'svg': '🎨',
+    'webp': '🖼️', 'ico': '🖼️',
+    
+    // Other
+    'sql': '🗄️', 'db': '🗄️', 'sqlite': '🗄️',
+    'zip': '📦', 'tar': '📦', 'gz': '📦', 'rar': '📦',
+    'lock': '🔒', 'gitignore': '🚫', 'dockerignore': '🚫',
+    'dockerfile': '🐳',
+  };
+  
+  return iconMap[extension.toLowerCase()] || '📄';
 }
 
 // === CHECK IF ENDPOINT IS IMPORTANT ===
@@ -440,6 +590,83 @@ window.disableDebug = function() {
   debugMode = false;
   console.log('');
   console.log('🔇 DEBUG MODE DISABLED');
+  console.log('');
+};
+
+// === CLEAR GITHUB TREE CACHE ===
+window.clearGithubCache = function() {
+  const cacheKeys = Object.keys(githubTreeCache);
+  const totalCached = cacheKeys.length;
+  
+  githubTreeCache = {};
+  
+  try {
+    localStorage.removeItem('claude-github-trees');
+  } catch (e) {
+    console.warn('⚠️ Could not clear localStorage:', e.message);
+  }
+  
+  console.log('');
+  console.log('🗑️ GITHUB TREE CACHE CLEARED');
+  console.log(`   Removed ${totalCached} cached repo tree(s)`);
+  console.log('   💿 localStorage cleared');
+  console.log('');
+};
+
+// === VIEW GITHUB TREE CACHE ===
+window.viewGithubCache = function() {
+  const cacheKeys = Object.keys(githubTreeCache);
+  
+  if (cacheKeys.length === 0) {
+    console.log('');
+    console.log('📦 GitHub tree cache is empty');
+    console.log('   Open the GitHub file picker to populate cache');
+    console.log('');
+    return;
+  }
+  
+  console.log('');
+  console.log('📦 ═══════════════════════════════════════════════════');
+  console.log('📦 GITHUB TREE CACHE STATUS');
+  console.log('📦 ═══════════════════════════════════════════════════');
+  
+  // Check localStorage info
+  try {
+    const stored = localStorage.getItem('claude-github-trees');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      const storedKeys = Object.keys(parsed);
+      console.log(`   💿 localStorage: ${storedKeys.length} repo(s) stored`);
+      
+      // Calculate expiration info
+      const now = Date.now();
+      let expiredCount = 0;
+      storedKeys.forEach(key => {
+        if (parsed[key].expiresAt < now) {
+          expiredCount++;
+        }
+      });
+      
+      if (expiredCount > 0) {
+        console.log(`   ⚠️ ${expiredCount} expired cache(s) (will be removed on next load)`);
+      }
+    }
+  } catch (e) {
+    console.log('   ⚠️ localStorage access error');
+  }
+  
+  console.log('');
+  
+  cacheKeys.forEach((key, idx) => {
+    const tree = githubTreeCache[key];
+    const totalSize = tree.reduce((sum, f) => sum + f.size, 0);
+    
+    console.log(`   [${idx + 1}] ${key}`);
+    console.log(`       📊 Files: ${tree.length.toLocaleString()}`);
+    console.log(`       💾 Total: ${totalSize.toLocaleString()} bytes`);
+  });
+  
+  console.log('📦 ═══════════════════════════════════════════════════');
   console.log('');
 };
 
@@ -1558,6 +1785,183 @@ window.fetch = async function(url, options = {}) {
       console.log('🐛 ═══════════════════════════════════════════════════');
       console.log('');
     }
+    
+    // === CALCULATE EXACT FILE LIST FROM CACHE (OR FETCH IF MISSING) ===
+    try {
+      const body = typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
+      
+      if (body.sync_source_config && body.sync_source_config.filters) {
+        const config = body.sync_source_config;
+        
+        // GitHub sync
+        if (config.owner && config.repo && config.branch) {
+          const cacheKey = `${config.owner}/${config.repo}/${config.branch}`;
+          let fullTree = githubTreeCache[cacheKey];
+          
+          // === AUTO-FETCH TREE IF NOT CACHED ===
+          if (!fullTree) {
+            console.log('');
+            console.log('🔄 GitHub tree not cached, fetching automatically...');
+            
+            try {
+              // Extract org ID from current URL
+              const orgMatch = window.location.href.match(/organizations\/([a-f0-9-]+)/);
+              const orgId = orgMatch ? orgMatch[1] : '8a16f469-4329-4988-96da-c65439b48f0d';
+              
+              const treeUrl = `https://claude.ai/api/organizations/${orgId}/sync/github/repo/${config.owner}/${config.repo}/tree/${config.branch}`;
+              
+              const treeResponse = await fetch(treeUrl);
+              
+              if (treeResponse.ok) {
+                const treeData = await treeResponse.json();
+                
+                if (treeData.tree && Array.isArray(treeData.tree)) {
+                  // Cache it!
+                  githubTreeCache[cacheKey] = treeData.tree
+                    .filter(item => item.type === 'blob')
+                    .map(item => ({
+                      path: item.path,
+                      size: item.size || 0,
+                      type: item.type,
+                      sha: item.sha
+                    }));
+                  
+                  fullTree = githubTreeCache[cacheKey];
+                  
+                  // === SAVE TO LOCALSTORAGE ===
+                  saveGithubTreeCache();
+                  
+                  console.log('✅ GitHub tree fetched and cached successfully!');
+                  console.log(`   📊 Total files: ${fullTree.length.toLocaleString()}`);
+                  console.log(`   💿 Saved to localStorage`);
+                } else {
+                  console.warn('⚠️ Invalid tree response format');
+                }
+              } else {
+                console.warn(`⚠️ Failed to fetch tree: HTTP ${treeResponse.status}`);
+              }
+            } catch (fetchError) {
+              console.warn(`⚠️ Could not auto-fetch tree: ${fetchError.message}`);
+            }
+            
+            console.log('');
+          }
+          
+          // === SHOW FILE LIST IF CACHE AVAILABLE ===
+          if (fullTree) {
+            const selectedPaths = Object.keys(config.filters.filters || {});
+            
+            // Match files based on filters
+            const matchedFiles = fullTree.filter(file => {
+              return selectedPaths.some(selectedPath => {
+                if (selectedPath.endsWith('/')) {
+                  // Directory: check if file is inside
+                  return file.path.startsWith(selectedPath);
+                } else {
+                  // Exact file match
+                  return file.path === selectedPath;
+                }
+              });
+            });
+            
+            const totalBytes = matchedFiles.reduce((sum, f) => sum + f.size, 0);
+            const estimatedTokens = Math.ceil(totalBytes / SETTINGS.CHARS_PER_TOKEN);
+            
+            console.log('');
+            console.log('📎 ═══════════════════════════════════════════════════');
+            console.log('📎 FILES SELECTED (from GitHub)');
+            console.log('📎 ═══════════════════════════════════════════════════');
+            console.log(`   📦 Repo: ${config.owner}/${config.repo}`);
+            console.log(`   🌿 Branch: ${config.branch}`);
+            console.log(`   📊 Files: ${matchedFiles.length}`);
+            console.log(`   💾 Total: ${totalBytes.toLocaleString()} bytes (~${estimatedTokens.toLocaleString()} tokens)`);
+            console.log('');
+            console.log('   📋 File list:');
+            
+            matchedFiles.forEach((file, idx) => {
+              const fileTokens = Math.ceil(file.size / SETTINGS.CHARS_PER_TOKEN);
+              const extension = file.path.split('.').pop().toLowerCase();
+              const fileIcon = getFileIcon(extension);
+              console.log(`       [${idx + 1}] ${fileIcon} ${file.path}`);
+              console.log(`           💾 ${file.size.toLocaleString()} bytes (~${fileTokens.toLocaleString()} tokens)`);
+            });
+            
+            console.log('📎 ═══════════════════════════════════════════════════');
+            console.log('');
+          }
+        }
+      }
+    } catch (e) {
+      console.error('❌ Error calculating file list:', e);
+      if (debugMode) {
+        console.error('🐛 Full error:', e);
+      }
+    }
+  }
+  
+  // === INTERCEPT GET /sync/github/repo/{owner}/{repo}/tree/{branch} ===
+  // This endpoint returns the FULL file tree with exact sizes!
+  if (typeof url === 'string' && url.includes('/sync/github/repo/') && url.includes('/tree/') && method === 'GET') {
+    const contentType = response.headers.get('content-type') || '';
+    
+    if (contentType.includes('application/json')) {
+      try {
+        const clonedResponse = response.clone();
+        const data = await clonedResponse.json();
+        
+        if (data.tree && Array.isArray(data.tree)) {
+          // Parse owner/repo/branch from URL
+          // Format: /api/organizations/{org}/sync/github/repo/{owner}/{repo}/tree/{branch}
+          const match = url.match(/\/sync\/github\/repo\/([^\/]+)\/([^\/]+)\/tree\/(.+?)(?:\?|$)/);
+          
+          if (match) {
+            const [_, owner, repo, branch] = match;
+            const cacheKey = `${owner}/${repo}/${branch}`;
+            
+            // Store full tree with file details
+            githubTreeCache[cacheKey] = data.tree
+              .filter(item => item.type === 'blob') // Only files, not directories
+              .map(item => ({
+                path: item.path,
+                size: item.size || 0,
+                type: item.type,
+                sha: item.sha
+              }));
+            
+            const fileCount = githubTreeCache[cacheKey].length;
+            const totalSize = githubTreeCache[cacheKey].reduce((sum, f) => sum + f.size, 0);
+            
+            // === SAVE TO LOCALSTORAGE ===
+            saveGithubTreeCache();
+            
+            console.log('');
+            console.log('🌳 ═══════════════════════════════════════════════════');
+            console.log('🌳 GITHUB TREE CACHED');
+            console.log('🌳 ═══════════════════════════════════════════════════');
+            console.log(`   📦 Repo: ${owner}/${repo}`);
+            console.log(`   🌿 Branch: ${branch}`);
+            console.log(`   📊 Total files: ${fileCount.toLocaleString()}`);
+            console.log(`   💾 Total size: ${totalSize.toLocaleString()} bytes`);
+            console.log(`   💿 Saved to localStorage`);
+            console.log('🌳 ═══════════════════════════════════════════════════');
+            console.log('');
+            
+            if (debugMode) {
+              console.log('🐛 Cache key:', cacheKey);
+              console.log('🐛 Sample files (first 5):');
+              githubTreeCache[cacheKey].slice(0, 5).forEach((file, idx) => {
+                console.log(`🐛   [${idx + 1}] ${file.path} (${file.size} bytes)`);
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.error('❌ Error caching GitHub tree:', e);
+        if (debugMode) {
+          console.error('🐛 Full error:', e);
+        }
+      }
+    }
   }
   
   // Intercept GET /sync/chat/{uuid} - this contains the ready sync state with file sizes
@@ -1692,7 +2096,8 @@ window.fetch = async function(url, options = {}) {
               console.log('🔗 ═══════════════════════════════════════════════════');
               console.log(`🔗 SYNC STATE DETECTED (${message.sync_sources.length} source(s))`);
               
-              message.sync_sources.forEach((source, idx) => {
+              // === SHOW FILE LIST FROM CACHE (if available) ===
+              for (const [idx, source] of message.sync_sources.entries()) {
                 if (source.type && source.status) {
                   const bytes = source.status.current_size_bytes || 0;
                   const files = source.status.current_file_count || 0;
@@ -1702,8 +2107,85 @@ window.fetch = async function(url, options = {}) {
                   console.log(`       📊 Size: ${bytes.toLocaleString()} bytes (~${tokens.toLocaleString()} tokens)`);
                   console.log(`       📁 Files: ${files}`);
                   
-                  // Show individual file details if available
-                  if (source.status.files && Array.isArray(source.status.files) && source.status.files.length > 0) {
+                  // === TRY TO SHOW DETAILED FILE LIST FROM GITHUB TREE CACHE ===
+                  if (source.type === 'github' && source.config) {
+                    const config = source.config;
+                    if (config.owner && config.repo && config.branch) {
+                      const cacheKey = `${config.owner}/${config.repo}/${config.branch}`;
+                      let fullTree = githubTreeCache[cacheKey];
+                      
+                      // === AUTO-FETCH TREE IF NOT CACHED ===
+                      if (!fullTree && config.filters && config.filters.filters) {
+                        console.log(`       🔄 Fetching file tree...`);
+                        
+                        try {
+                          // Extract org ID from current URL
+                          const orgMatch = window.location.href.match(/organizations\/([a-f0-9-]+)/);
+                          const orgId = orgMatch ? orgMatch[1] : '8a16f469-4329-4988-96da-c65439b48f0d';
+                          
+                          const treeUrl = `https://claude.ai/api/organizations/${orgId}/sync/github/repo/${config.owner}/${config.repo}/tree/${config.branch}`;
+                          
+                          const treeResponse = await fetch(treeUrl);
+                          
+                          if (treeResponse.ok) {
+                            const treeData = await treeResponse.json();
+                            
+                            if (treeData.tree && Array.isArray(treeData.tree)) {
+                              // Cache it!
+                              githubTreeCache[cacheKey] = treeData.tree
+                                .filter(item => item.type === 'blob')
+                                .map(item => ({
+                                  path: item.path,
+                                  size: item.size || 0,
+                                  type: item.type,
+                                  sha: item.sha
+                                }));
+                              
+                              fullTree = githubTreeCache[cacheKey];
+                              
+                              // === SAVE TO LOCALSTORAGE ===
+                              saveGithubTreeCache();
+                              
+                              console.log(`       ✅ File tree cached (${fullTree.length} files)`);
+                              console.log(`       💿 Saved to localStorage`);
+                            }
+                          }
+                        } catch (fetchError) {
+                          console.log(`       ⚠️ Could not fetch tree: ${fetchError.message}`);
+                        }
+                      }
+                      
+                      // === SHOW FILE LIST ===
+                      if (fullTree && config.filters && config.filters.filters) {
+                        const selectedPaths = Object.keys(config.filters.filters);
+                        
+                        // Match files based on filters
+                        const matchedFiles = fullTree.filter(file => {
+                          return selectedPaths.some(selectedPath => {
+                            if (selectedPath.endsWith('/')) {
+                              return file.path.startsWith(selectedPath);
+                            } else {
+                              return file.path === selectedPath;
+                            }
+                          });
+                        });
+                        
+                        if (matchedFiles.length > 0) {
+                          console.log(`       📋 File list:`);
+                          matchedFiles.forEach((file, fileIdx) => {
+                            const fileTokens = Math.ceil(file.size / SETTINGS.CHARS_PER_TOKEN);
+                            const extension = file.path.split('.').pop().toLowerCase();
+                            const fileIcon = getFileIcon(extension);
+                            console.log(`           [${fileIdx + 1}] ${fileIcon} ${file.path}`);
+                            console.log(`               💾 ${file.size.toLocaleString()} bytes (~${fileTokens.toLocaleString()} tokens)`);
+                          });
+                        }
+                      }
+                    }
+                  }
+                  
+                  // Fallback: Show individual file details if available in status
+                  else if (source.status.files && Array.isArray(source.status.files) && source.status.files.length > 0) {
                     console.log(`       📋 File list:`);
                     source.status.files.forEach((file, fileIdx) => {
                       const fileName = file.path || file.name || file.file_name || 'unknown';
@@ -1713,7 +2195,7 @@ window.fetch = async function(url, options = {}) {
                     });
                   }
                 }
-              });
+              }
               
               console.log(`   ⏰ Cached for next completion request`);
               
@@ -1960,6 +2442,10 @@ console.log('   window.disableDebug()    - Disable debug mode');
 console.log('   window.saveDebugLog()    - Download debug log as file');
 console.log('   window.getDebugSummary() - Show debug summary in console');
 console.log('   window.updateImageDimensions() - Manually fetch image dimensions for current chat');
+console.log('');
+console.log('🌳 GitHub sync commands:');
+console.log('   window.viewGithubCache() - View cached GitHub file trees');
+console.log('   window.clearGithubCache() - Clear all cached trees');
 console.log('');
 console.log('💬 Start chatting with Claude to track token usage!');
 console.log('');
