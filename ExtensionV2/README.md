@@ -228,6 +228,8 @@ window.claudeTrackerV2.exportData()
 
 ## 🎮 Debug Parancsok
 
+> 💡 Tipp: A parancsok Promise-t adnak vissza, ezért a DevTools konzolban használj `await`-et (pl. `await window.claudeTrackerV2.getContext()`), így azonnal megkapod az eredményt.
+
 ### Context & Status
 
 ```javascript

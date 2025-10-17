@@ -434,7 +434,6 @@
         pendingSyncSources.push(syncSource);
       }
     }
-  });
 
   // ═══════════════════════════════════════════════════════════════════
   // URL CHANGE MONITORING
