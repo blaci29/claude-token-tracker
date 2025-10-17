@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "Claude Token Tracker V2 (Test)",
+  "version": "2.0.0",
+  "description": "Track token usage in Claude.ai conversations with user/project/chat hierarchy",
+  
+  "permissions": [
+    "storage"
+  ],
+  
+  "host_permissions": [
+    "https://claude.ai/*"
+  ],
+  
+  "background": {
+    "service_worker": "worker-v2.js",
+    "type": "module"
+  },
+  
+  "content_scripts": [
+    {
+      "matches": ["https://claude.ai/*"],
+      "js": [
+        "constants-v2.js",
+        "tracker-v2.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://claude.ai/*"],
+      "js": ["page-injected-v2.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ],
+  
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}
