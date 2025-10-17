@@ -206,6 +206,13 @@
 
   async function sendToStorage(message) {
     try {
+      // Check if chrome.runtime is available
+      if (!chrome || !chrome.runtime || !chrome.runtime.sendMessage) {
+        console.error('❌ Storage communication error: chrome.runtime not available');
+        console.log('   This usually means the service worker is not running or extension context is invalid');
+        return null;
+      }
+
       const response = await chrome.runtime.sendMessage({
         type: 'TRACKER_V2_STORAGE',
         action: message.action,
@@ -250,12 +257,170 @@
   }
 
   // ═══════════════════════════════════════════════════════════════════
+  // AUTO-FIX: MISSING GITHUB FILES
+  // ═══════════════════════════════════════════════════════════════════
+
+  async function autoFixMissingGithubFiles(repoKey) {
+    console.log('🔧 [V2] Auto-fix: Searching for messages with missing GitHub files for', repoKey);
+
+    // Get all chats with incomplete messages from storage
+    let allChats;
+    try {
+      allChats = await sendToStorage({
+        action: 'GET_ALL_CHATS',
+        data: {}
+      });
+    } catch (error) {
+      console.error('❌ [V2] Auto-fix: Failed to get chats from storage:', error);
+      return;
+    }
+
+    if (!allChats || allChats.length === 0) {
+      console.log('ℹ️ [V2] Auto-fix: No chats found');
+      return;
+    }
+
+    console.log(`🔍 [V2] Auto-fix: Checking ${allChats.length} chats...`);
+
+    let totalChatsFixed = 0;
+    let totalMessagesFixed = 0;
+
+    for (const chat of allChats) {
+      // Skip chats with no data_status or all complete
+      if (!chat.data_status || chat.data_status.complete) {
+        console.log(`⏭️ [V2] Auto-fix: Skipping chat "${chat.name}" (complete or no data_status)`);
+        continue;
+      }
+
+      console.log(`🔎 [V2] Auto-fix: Checking chat "${chat.name}" (incomplete_message_count: ${chat.data_status.incomplete_message_count})...`);
+
+      let chatNeedsUpdate = false;
+      const updatedMessages = [];
+
+      for (const message of chat.messages || []) {
+        let messageNeedsUpdate = false;
+        let messageFixed = { ...message };
+
+        // Check if message has issues related to this repo
+        if (message.data_status && !message.data_status.complete && message.data_status.issues) {
+          console.log(`   📝 [V2] Message ${message.index}: has ${message.data_status.issues.length} issues`);
+
+          const hasRepoIssue = message.data_status.issues.some(
+            issue => {
+              const matches = issue.type === 'missing_github_files' &&
+                              issue.required_data &&
+                              issue.required_data.includes(repoKey);
+
+              if (issue.type === 'missing_github_files') {
+                console.log(`      Issue: ${issue.type}, required_data:`, issue.required_data, `matches repo "${repoKey}":`, matches);
+              }
+
+              return matches;
+            }
+          );
+
+          if (hasRepoIssue) {
+            console.log(`   ✅ [V2] Message ${message.index}: Found matching repo issue, attempting fix...`);
+            // Re-expand sync sources with new cache
+            const expandedFiles = [];
+            const updatedSyncSources = [];
+
+            for (const syncSource of message.sync_sources || []) {
+              const files = await expandSyncSourceFiles(syncSource);
+
+              if (files.length > 0) {
+                expandedFiles.push(...files);
+                updatedSyncSources.push({
+                  ...syncSource,
+                  expanded_files: files,
+                  issue: undefined  // Remove issue
+                });
+                messageNeedsUpdate = true;
+              } else {
+                // Still no files (keep issue)
+                updatedSyncSources.push(syncSource);
+              }
+            }
+
+            if (messageNeedsUpdate) {
+              // Recalculate stats with expanded files
+              const newStats = calculateMessageStats(message, expandedFiles);
+
+              // Update data_status (remove fixed issues)
+              const remainingIssues = message.data_status.issues.filter(
+                issue => !(issue.type === 'missing_github_files' &&
+                          issue.required_data &&
+                          issue.required_data.includes(repoKey))
+              );
+
+              const isComplete = remainingIssues.length === 0;
+
+              messageFixed = {
+                ...message,
+                sync_sources: updatedSyncSources,
+                stats: newStats,
+                data_status: {
+                  complete: isComplete,
+                  validated: isComplete,
+                  locked: false,
+                  issues: remainingIssues,
+                  last_sync: new Date().toISOString()
+                }
+              };
+
+              totalMessagesFixed++;
+              chatNeedsUpdate = true;
+            }
+          }
+        }
+
+        updatedMessages.push(messageFixed);
+      }
+
+      if (chatNeedsUpdate) {
+        // Recalculate chat-level data_status
+        const incompleteMessageCount = updatedMessages.filter(m => !m.data_status.complete).length;
+        const allMessagesComplete = incompleteMessageCount === 0;
+
+        const updatedChat = {
+          ...chat,
+          messages: updatedMessages,
+          data_status: {
+            complete: allMessagesComplete,
+            all_messages_complete: allMessagesComplete,
+            incomplete_message_count: incompleteMessageCount,
+            last_sync: new Date().toISOString()
+          }
+        };
+
+        // Save updated chat to storage
+        await sendToStorage({
+          action: 'UPDATE_CHAT_MESSAGES',
+          data: {
+            chatId: chat.uuid,
+            chat: updatedChat
+          }
+        });
+
+        totalChatsFixed++;
+        console.log(`✅ [V2] Auto-fix: Fixed chat "${chat.name}" (${updatedMessages.filter((m, i) => m !== chat.messages[i]).length} messages updated)`);
+      }
+    }
+
+    if (totalMessagesFixed > 0) {
+      console.log(`🎉 [V2] Auto-fix complete: ${totalMessagesFixed} messages fixed in ${totalChatsFixed} chats for repo ${repoKey}`);
+    } else {
+      console.log(`ℹ️ [V2] Auto-fix: No messages needed fixing for repo ${repoKey}`);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
   // GITHUB TREE CACHE
   // ═══════════════════════════════════════════════════════════════════
 
-  function cacheGithubTree(owner, repo, branch, tree) {
+  async function cacheGithubTree(owner, repo, branch, tree) {
     const key = `${owner}/${repo}/${branch}`;
-    githubTreeCache[key] = {
+    const cacheData = {
       cached_at: new Date().toISOString(),
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       files: tree
@@ -268,12 +433,43 @@
         }))
     };
 
-    console.log('🌳 [V2] GitHub tree cached:', key, `(${githubTreeCache[key].files.length} files)`);
+    // Save to memory cache (for current session)
+    githubTreeCache[key] = cacheData;
+
+    // Save to persistent storage (for auto-fix and future sessions)
+    await sendToStorage({
+      action: 'CACHE_GITHUB_TREE',
+      data: {
+        key: key,
+        cache: cacheData
+      }
+    });
+
+    console.log('🌳 [V2] GitHub tree cached:', key, `(${cacheData.files.length} files)`);
+
+    // AUTO-FIX: Find and fix messages with missing GitHub files for this repo
+    await autoFixMissingGithubFiles(key);
   }
 
-  function getGithubTree(owner, repo, branch) {
+  async function getGithubTree(owner, repo, branch) {
     const key = `${owner}/${repo}/${branch}`;
-    const cached = githubTreeCache[key];
+
+    // Try memory cache first
+    let cached = githubTreeCache[key];
+
+    // If not in memory, try persistent storage
+    if (!cached) {
+      const storageCache = await sendToStorage({
+        action: 'GET_GITHUB_TREE',
+        data: { key: key }
+      });
+
+      if (storageCache) {
+        // Load into memory cache
+        githubTreeCache[key] = storageCache;
+        cached = storageCache;
+      }
+    }
 
     if (cached) {
       const now = new Date();
@@ -283,6 +479,12 @@
       } else {
         console.log('⚠️ [V2] GitHub cache expired:', key);
         delete githubTreeCache[key];
+
+        // Also delete from persistent storage
+        await sendToStorage({
+          action: 'DELETE_GITHUB_TREE',
+          data: { key: key }
+        });
       }
     }
 
@@ -293,13 +495,13 @@
   // EXPAND SYNC SOURCE FILES (from GitHub cache)
   // ═══════════════════════════════════════════════════════════════════
 
-  function expandSyncSourceFiles(syncSource) {
+  async function expandSyncSourceFiles(syncSource) {
     if (syncSource.type !== 'github') return [];
 
     const { owner, repo, branch, filters } = syncSource.config;
     if (!owner || !repo || !branch || !filters) return [];
 
-    const tree = getGithubTree(owner, repo, branch);
+    const tree = await getGithubTree(owner, repo, branch);
     if (!tree) {
       console.warn('⚠️ [V2] No GitHub cache for:', `${owner}/${repo}/${branch}`);
       return [];
@@ -351,8 +553,79 @@
     // Extract and process messages
     const rawMessages = chatData.chat_messages || [];
     const processedMessages = rawMessages.map((msg, index) => {
-      // Calculate message stats
-      const stats = calculateMessageStats(msg);
+      // Expand sync_sources to file list (GitHub, etc.)
+      const expandedFiles = [];
+      const syncSources = msg.sync_sources || [];
+      const syncSourcesWithIssues = [];
+
+      for (const syncSource of syncSources) {
+        const files = expandSyncSourceFiles(syncSource);
+
+        if (files.length > 0) {
+          expandedFiles.push(...files);
+          syncSourcesWithIssues.push({
+            ...syncSource,
+            expanded_files: files
+          });
+        } else {
+          // No files found - mark as issue
+          syncSourcesWithIssues.push({
+            ...syncSource,
+            expanded_files: [],
+            issue: 'missing_github_files'
+          });
+        }
+      }
+
+      // Calculate message stats (including expanded files)
+      const stats = calculateMessageStats(msg, expandedFiles);
+
+      // Detect issues
+      const issues = [];
+      let isComplete = true;
+
+      // Check for missing GitHub files
+      for (const syncSource of syncSourcesWithIssues) {
+        if (syncSource.issue === 'missing_github_files') {
+          const repoKey = `${syncSource.config.owner}/${syncSource.config.repo}/${syncSource.config.branch}`;
+          issues.push({
+            id: `missing_github_${syncSource.uuid}`,
+            type: 'missing_github_files',
+            severity: 'warning',
+            description: `GitHub file list not available for ${repoKey}`,
+            can_auto_fix: true,
+            required_data: [repoKey],
+            created_at: new Date().toISOString()
+          });
+          isComplete = false;
+        }
+      }
+
+      // Check for missing attachments
+      if (msg.attachments && msg.attachments.length > 0) {
+        for (const attachment of msg.attachments) {
+          if (!attachment.extracted_content && !attachment.file_name) {
+            issues.push({
+              id: `missing_attachment_${attachment.id || index}`,
+              type: 'missing_attachment_content',
+              severity: 'warning',
+              description: 'Attachment content not extracted',
+              can_auto_fix: false,
+              created_at: new Date().toISOString()
+            });
+            isComplete = false;
+          }
+        }
+      }
+
+      // Data status
+      const data_status = {
+        complete: isComplete,
+        validated: isComplete && issues.length === 0,
+        locked: false,
+        issues: issues,
+        last_sync: new Date().toISOString()
+      };
 
       return {
         uuid: msg.uuid,
@@ -362,13 +635,26 @@
         created_at: msg.created_at,
         updated_at: msg.updated_at,
         stop_reason: msg.completion?.stop_reason || null,
+        model: msg.model || null,  // For Opus detection (assistant messages only)
         content: msg.content || [],
         attachments: msg.attachments || [],
         files: msg.files || [],
-        sync_sources: msg.sync_sources || [],
-        stats: stats
+        sync_sources: syncSourcesWithIssues,
+        stats: stats,
+        data_status: data_status
       };
     });
+
+    // Calculate chat-level data_status
+    const incompleteMessageCount = processedMessages.filter(m => !m.data_status.complete).length;
+    const allMessagesComplete = incompleteMessageCount === 0;
+
+    const chatDataStatus = {
+      complete: allMessagesComplete,
+      all_messages_complete: allMessagesComplete,
+      incomplete_message_count: incompleteMessageCount,
+      last_sync: new Date().toISOString()
+    };
 
     // Prepare chat object with embedded messages
     const chatObj = {
@@ -380,7 +666,8 @@
       updated_at: chatData.updated_at,
       is_starred: chatData.is_starred || false,
       settings: chatData.settings || {},
-      messages: processedMessages  // ← Embedded directly!
+      messages: processedMessages,  // ← Embedded directly!
+      data_status: chatDataStatus
     };
 
     // Save chat to storage
@@ -400,14 +687,70 @@
     console.log('✅ [V2] Chat saved:', chatObj.name);
     console.log(`   Project: ${projectId}`);
     console.log(`   Messages: ${processedMessages.length}`);
-    console.log(`   Pairs: ${Math.floor(processedMessages.length / 2)}`);
+
+    // ===== SESSION TRACKING: Add message pairs =====
+    await trackMessagePairs(chatObj.uuid, processedMessages);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // SESSION TRACKING: MESSAGE PAIR TRACKING
+  // ═══════════════════════════════════════════════════════════════════
+
+  async function trackMessagePairs(chatId, messages) {
+    if (!messages || messages.length === 0) return;
+
+    console.log('📊 [V2] Tracking message pairs for sessions...');
+
+    // Find complete pairs (human + assistant)
+    let pairsAdded = 0;
+    let incompleteFound = false;
+
+    for (let i = 0; i < messages.length - 1; i += 2) {
+      const humanMsg = messages[i];
+      const assistantMsg = messages[i + 1];
+
+      // Check if this is a valid pair
+      if (!humanMsg || !assistantMsg) {
+        incompleteFound = true;
+        break;
+      }
+
+      if (humanMsg.sender !== 'human' || assistantMsg.sender !== 'assistant') {
+        console.warn('⚠️ [V2] Invalid message pair sequence at index', i);
+        continue;
+      }
+
+      // Add pair to sessions
+      try {
+        await sendToStorage({
+          action: 'ADD_MESSAGE_PAIR',
+          data: {
+            chatId: chatId,
+            humanIndex: i,
+            assistantIndex: i + 1,
+            humanMessage: humanMsg,
+            assistantMessage: assistantMsg
+          }
+        });
+
+        pairsAdded++;
+      } catch (error) {
+        console.error('❌ [V2] Failed to add message pair:', error);
+      }
+    }
+
+    console.log(`✅ [V2] Session tracking: ${pairsAdded} pairs added`);
+
+    if (incompleteFound) {
+      console.log('ℹ️ [V2] Incomplete pair detected at end (no assistant response yet)');
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════
   // MESSAGE STATS CALCULATION
   // ═══════════════════════════════════════════════════════════════════
 
-  function calculateMessageStats(message) {
+  function calculateMessageStats(message, expandedFiles = []) {
     const stats = {
       total_chars: 0,
       total_tokens_estimated: 0,
@@ -444,6 +787,29 @@
         stats.by_type[contentType].chars += chars;
         stats.by_type[contentType].tokens_estimated += tokens;
       }
+    }
+
+    // Process expanded files from sync_sources (GitHub, etc.)
+    if (expandedFiles && expandedFiles.length > 0) {
+      const fileType = 'github_files';
+
+      if (!stats.by_type[fileType]) {
+        stats.by_type[fileType] = { chars: 0, tokens_estimated: 0, file_count: 0 };
+      }
+
+      for (const file of expandedFiles) {
+        stats.total_chars += file.chars || 0;
+        stats.total_tokens_estimated += file.tokens_estimated || 0;
+
+        stats.by_type[fileType].chars += file.chars || 0;
+        stats.by_type[fileType].tokens_estimated += file.tokens_estimated || 0;
+        stats.by_type[fileType].file_count++;
+      }
+
+      console.log(`📂 [V2] Added ${expandedFiles.length} GitHub files to stats:`, {
+        chars: stats.by_type[fileType].chars,
+        tokens: stats.by_type[fileType].tokens_estimated
+      });
     }
 
     // Add actual tokens if available (from API)
@@ -514,7 +880,7 @@
     // ===== GITHUB TREE =====
     else if (message.type === 'CLAUDE_TRACKER_V2_GITHUB_TREE') {
       const { owner, repo, branch, tree } = message.data;
-      cacheGithubTree(owner, repo, branch, tree);
+      await cacheGithubTree(owner, repo, branch, tree);
     }
 
     // ===== SYNC READY =====
@@ -696,6 +1062,42 @@
               data: {}
             });
             result = { success: true };
+            break;
+
+          // ===== SESSION TRACKING =====
+          case 'INITIALIZE_SESSIONS':
+            result = await sendToStorage({
+              action: 'INITIALIZE_SESSIONS',
+              data: {}
+            });
+            break;
+
+          case 'GET_SESSIONS':
+            result = await sendToStorage({
+              action: 'GET_SESSIONS',
+              data: {}
+            });
+            break;
+
+          case 'GET_SESSION_STATS':
+            result = await sendToStorage({
+              action: 'GET_SESSION_STATS',
+              data: {}
+            });
+            break;
+
+          case 'GET_CHANGELOG':
+            result = await sendToStorage({
+              action: 'GET_CHANGELOG',
+              data: { limit: data.limit || 10 }
+            });
+            break;
+
+          case 'RECALCULATE_SESSION_STATS':
+            result = await sendToStorage({
+              action: 'RECALCULATE_SESSION_STATS',
+              data: { sessionType: data.sessionType }
+            });
             break;
 
           default:

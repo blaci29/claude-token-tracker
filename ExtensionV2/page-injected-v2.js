@@ -551,6 +551,112 @@
       console.log('✅ Storage reset complete');
       location.reload();
       return result;
+    },
+
+    // ===== SESSION TRACKING =====
+
+    // Initialize sessions (first time setup)
+    async initializeSessions() {
+      const result = await this._sendCommand('INITIALIZE_SESSIONS');
+      console.log('✅ Sessions initialized');
+      return result;
+    },
+
+    // Get all sessions (raw data)
+    async getSessions() {
+      const result = await this._sendCommand('GET_SESSIONS');
+      console.log('\n📊 Sessions:', result);
+      return result;
+    },
+
+    // Get session stats (formatted)
+    async getSessionStats() {
+      const result = await this._sendCommand('GET_SESSION_STATS');
+      if (result) {
+        console.log('\n📊 Session Stats:\n');
+
+        // Current Session (5hr)
+        if (result.current) {
+          console.log('🕐 Current Session (5 hours):');
+          console.log(`   Pairs: ${result.current.total_pairs}`);
+          console.log(`   Chars: ${result.current.total_chars.toLocaleString()}`);
+          console.log(`   Tokens (est): ${result.current.total_tokens_estimated.toLocaleString()}\n`);
+        } else {
+          console.log('🕐 Current Session: No active session\n');
+        }
+
+        // Weekly Session (7 days)
+        if (result.weekly) {
+          console.log('📅 Weekly Session (7 days):');
+          console.log(`   Pairs: ${result.weekly.total_pairs}`);
+          console.log(`   Chars: ${result.weekly.total_chars.toLocaleString()}`);
+          console.log(`   Tokens (est): ${result.weekly.total_tokens_estimated.toLocaleString()}`);
+
+          if (result.weekly.opus_subset && result.weekly.opus_subset.total_pairs > 0) {
+            console.log(`   ⭐ Opus subset: ${result.weekly.opus_subset.total_pairs} pairs (${result.weekly.opus_subset.total_tokens_estimated.toLocaleString()} tokens)`);
+          }
+          console.log('');
+        } else {
+          console.log('📅 Weekly Session: No active session\n');
+        }
+
+        // Monthly Session (30 days)
+        if (result.monthly) {
+          console.log('📆 Monthly Session (30 days):');
+          console.log(`   Pairs: ${result.monthly.total_pairs}`);
+          console.log(`   Chars: ${result.monthly.total_chars.toLocaleString()}`);
+          console.log(`   Tokens (est): ${result.monthly.total_tokens_estimated.toLocaleString()}\n`);
+        } else {
+          console.log('📆 Monthly Session: No active session\n');
+        }
+
+        // Monthly Archive
+        if (result.monthly_archive && result.monthly_archive.length > 0) {
+          console.log(`📦 Monthly Archive (${result.monthly_archive.length} months):\n`);
+          result.monthly_archive.forEach((archive, i) => {
+            console.log(`   ${i + 1}. Archived: ${new Date(archive.archived_at).toLocaleDateString()}`);
+            console.log(`      Reset: ${new Date(archive.reset_at).toLocaleDateString()}`);
+            console.log(`      Pairs: ${archive.stats.total_pairs}, Tokens: ${archive.stats.total_tokens_estimated.toLocaleString()}`);
+          });
+          console.log('');
+        }
+      }
+      return result;
+    },
+
+    // Get stats changelog (last N entries)
+    async getChangelog(limit = 10) {
+      const result = await this._sendCommand('GET_CHANGELOG', { limit });
+      if (result && Array.isArray(result)) {
+        console.log(`\n📝 Stats Changelog (last ${result.length} entries):\n`);
+        result.forEach((entry, i) => {
+          const timestamp = new Date(entry.timestamp).toLocaleString();
+          console.log(`${i + 1}. [${timestamp}] ${entry.type}`);
+
+          if (entry.type === 'message_pair_added') {
+            console.log(`   Chat: ${entry.chat_id}`);
+            console.log(`   Pair: ${entry.pair.human} → ${entry.pair.assistant}`);
+            if (entry.is_opus) {
+              console.log(`   ⭐ Opus model`);
+            }
+            console.log(`   Delta: +${entry.delta.chars} chars, +${entry.delta.tokens_estimated} tokens`);
+          }
+          console.log('');
+        });
+      }
+      return result;
+    },
+
+    // Recalculate session stats (for debugging)
+    async recalculateSessionStats(sessionType = 'current') {
+      if (!['current', 'weekly', 'monthly'].includes(sessionType)) {
+        console.error('❌ Invalid session type. Use: current, weekly, or monthly');
+        return { error: 'Invalid session type' };
+      }
+
+      const result = await this._sendCommand('RECALCULATE_SESSION_STATS', { sessionType });
+      console.log(`✅ ${sessionType} session stats recalculated`);
+      return result;
     }
   };
 
@@ -564,6 +670,13 @@
   console.log('   window.claudeTrackerV2.getMessage(index)       // Get message');
   console.log('   window.claudeTrackerV2.getProjectInfo()        // Project info');
   console.log('   window.claudeTrackerV2.getGithubCache()        // GitHub cache');
+  console.log('');
+  console.log('📊 Session Tracking (NEW!):');
+  console.log('   window.claudeTrackerV2.initializeSessions()           // First time setup');
+  console.log('   window.claudeTrackerV2.getSessionStats()              // Current/Weekly/Monthly stats');
+  console.log('   window.claudeTrackerV2.getSessions()                  // Raw session data');
+  console.log('   window.claudeTrackerV2.getChangelog(limit)            // Stats changelog (default: 10)');
+  console.log('   window.claudeTrackerV2.recalculateSessionStats(type)  // Recalc (current/weekly/monthly)');
   console.log('');
   console.log('📤 Export:');
   console.log('   window.claudeTrackerV2.exportData()            // Copy to clipboard');

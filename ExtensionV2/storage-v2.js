@@ -119,7 +119,17 @@ class StorageManagerV2 {
       full_name: userData.full_name || null,
       email: userData.email || null,
       tracked_since: userData.tracked_since || new Date().toISOString(),
-      stats: userData.stats || this.createEmptyStats()
+
+      // Connectors & defaults
+      connectors: userData.connectors || {},
+      defaults: userData.defaults || {},
+      github_repos: userData.github_repos || {},
+
+      // Sessions (tracking)
+      sessions: userData.sessions || null,
+
+      // Stats changelog (max 100 entries, FIFO)
+      stats_changelog: userData.stats_changelog || []
     };
 
     await this.set('user', user);
@@ -342,6 +352,34 @@ class StorageManagerV2 {
     const chat = await this.getChat(chatId);
     return chat?.messages || [];
   }
+
+  async getAllChats() {
+    const chats = await this.get('chats') || {};
+    return Object.values(chats);
+  }
+
+  async updateChatMessages(chatId, updatedChat) {
+    const chats = await this.get('chats') || {};
+
+    if (!chats[chatId]) {
+      logger.warning('Chat not found for update', { chatId });
+      return false;
+    }
+
+    chats[chatId] = updatedChat;
+    await this.set('chats', chats);
+
+    // Update chat stats
+    await this.updateChatStats(chatId);
+
+    // Update project stats if chat belongs to a project
+    if (updatedChat.project_uuid) {
+      await this.updateProjectStats(updatedChat.project_uuid);
+    }
+
+    logger.success('Chat messages updated', { chatId, message_count: updatedChat.messages.length });
+    return true;
+  }
   
   // ===== GITHUB CACHE (user level) =====
 
@@ -464,26 +502,41 @@ class StorageManagerV2 {
   async updateProjectStats(projectId) {
     const project = await this.getProject(projectId);
     if (!project) return false;
-    
+
     const stats = this.createEmptyStats();
     stats.total_chats = project.chat_ids.length;
-    
+
+    let incompleteChatsCount = 0;
+
     for (const chatId of project.chat_ids) {
       const chat = await this.getChat(chatId);
       if (chat) {
-        stats.total_messages += chat.message_count;
+        stats.total_messages += chat.stats.total_messages || 0;
         stats.total_chars += chat.stats.total_chars;
         stats.total_tokens_estimated += chat.stats.total_tokens_estimated;
-        if (chat.stats.total_tokens_actual) {
-          stats.total_tokens_actual += chat.stats.total_tokens_actual;
+        if (chat.stats.total_tokens_actual_input) {
+          stats.total_tokens_actual += chat.stats.total_tokens_actual_input + (chat.stats.total_tokens_actual_output || 0);
+        }
+
+        // Check chat data_status
+        if (chat.data_status && !chat.data_status.complete) {
+          incompleteChatsCount++;
         }
       }
     }
-    
+
     project.stats = stats;
+
+    // Project data_status
+    project.data_status = {
+      complete: incompleteChatsCount === 0,
+      incomplete_chat_count: incompleteChatsCount,
+      last_sync: new Date().toISOString()
+    };
+
     await this.setProject(projectId, project);
-    logger.debug('Project stats updated', { projectId });
-    
+    logger.debug('Project stats updated', { projectId, incompleteChatsCount });
+
     return stats;
   }
   
@@ -543,6 +596,457 @@ class StorageManagerV2 {
   async exportAll() {
     const data = await this.getAll();
     return data;  // Return raw object, not stringified
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // SESSION TRACKING
+  // ═══════════════════════════════════════════════════════════════════
+
+  // ===== SESSION INITIALIZATION =====
+
+  async initializeSessions() {
+    const user = await this.getUser();
+    if (!user) {
+      logger.error('Cannot initialize sessions: no user');
+      return false;
+    }
+
+    const now = new Date();
+
+    user.sessions = {
+      current: null,  // Will be created when first message arrives
+      weekly: null,   // Will be created when first message arrives
+      monthly: null,  // Will be created when first message arrives
+      monthly_archive: [],
+
+      config: {
+        current_duration_hours: 5,  // Default: 5 hours
+        weekly_reset: {
+          dayOfWeek: 4,  // Thursday (0 = Sunday)
+          hour: 9,
+          minute: 59
+        },
+        monthly_reset: {
+          day: 15,  // 15th of each month (default, user can adjust)
+          hour: 0,
+          minute: 0
+        }
+      }
+    };
+
+    await this.setUser(user);
+    logger.success('Sessions initialized');
+    return true;
+  }
+
+  // ===== SESSION GETTERS =====
+
+  async getSessions() {
+    const user = await this.getUser();
+    return user?.sessions || null;
+  }
+
+  async getCurrentSession() {
+    const sessions = await this.getSessions();
+    return sessions?.current || null;
+  }
+
+  async getWeeklySession() {
+    const sessions = await this.getSessions();
+    return sessions?.weekly || null;
+  }
+
+  async getMonthlySession() {
+    const sessions = await this.getSessions();
+    return sessions?.monthly || null;
+  }
+
+  async getSessionConfig() {
+    const sessions = await this.getSessions();
+    return sessions?.config || null;
+  }
+
+  // ===== SESSION CREATION =====
+
+  createNewCurrentSession(startTime) {
+    const started_at = new Date(startTime);
+    const config = this.getSessionConfig();
+    const durationMs = (config?.current_duration_hours || 5) * 60 * 60 * 1000;
+    const expires_at = new Date(started_at.getTime() + durationMs);
+
+    return {
+      started_at: started_at.toISOString(),
+      expires_at: expires_at.toISOString(),
+      active: true,
+      message_pairs: [],
+      stats: {
+        total_pairs: 0,
+        total_chars: 0,
+        total_tokens_estimated: 0,
+        total_tokens_actual: 0
+      }
+    };
+  }
+
+  async createNewWeeklySession() {
+    const nextReset = await this.calculateNextWeeklyReset();
+
+    return {
+      reset_at: nextReset.toISOString(),
+      message_pairs: [],
+      stats: {
+        total_pairs: 0,
+        total_chars: 0,
+        total_tokens_estimated: 0,
+        opus_subset: {
+          total_pairs: 0,
+          total_chars: 0,
+          total_tokens_estimated: 0
+        }
+      }
+    };
+  }
+
+  async createNewMonthlySession() {
+    const nextReset = await this.calculateNextMonthlyReset();
+
+    return {
+      reset_at: nextReset.toISOString(),
+      message_pairs: [],
+      stats: {
+        total_pairs: 0,
+        total_chars: 0,
+        total_tokens_estimated: 0
+      }
+    };
+  }
+
+  // ===== RESET TIME CALCULATIONS =====
+
+  async calculateNextWeeklyReset() {
+    const config = await this.getSessionConfig();
+    const weeklyReset = config?.weekly_reset || { dayOfWeek: 4, hour: 9, minute: 59 };
+
+    const now = new Date();
+    const next = new Date(now);
+
+    // Calculate days until next reset day
+    const daysUntilReset = (weeklyReset.dayOfWeek - now.getDay() + 7) % 7;
+    next.setDate(now.getDate() + daysUntilReset);
+    next.setHours(weeklyReset.hour, weeklyReset.minute, 0, 0);
+
+    // If reset time is in the past, add 7 days
+    if (next < now) {
+      next.setDate(next.getDate() + 7);
+    }
+
+    return next;
+  }
+
+  async calculateNextMonthlyReset() {
+    const config = await this.getSessionConfig();
+    const monthlyReset = config?.monthly_reset || { day: 15, hour: 0, minute: 0 };
+
+    const now = new Date();
+    const next = new Date(now.getFullYear(), now.getMonth(), monthlyReset.day, monthlyReset.hour, monthlyReset.minute, 0, 0);
+
+    // If reset time is in the past, move to next month
+    if (next < now) {
+      next.setMonth(next.getMonth() + 1);
+    }
+
+    return next;
+  }
+
+  // ===== SESSION CLEANUP =====
+
+  async checkAndCleanupExpiredSessions() {
+    const user = await this.getUser();
+    if (!user || !user.sessions) return false;
+
+    const now = new Date();
+    let needsSave = false;
+
+    // 1. Current Session - DELETE if expired
+    if (user.sessions.current) {
+      const expiresAt = new Date(user.sessions.current.expires_at);
+      if (now > expiresAt) {
+        user.sessions.current = null;
+        needsSave = true;
+        logger.info('⏰ Current session expired and deleted');
+      }
+    }
+
+    // 2. Weekly Session - DELETE if expired
+    if (user.sessions.weekly) {
+      const resetAt = new Date(user.sessions.weekly.reset_at);
+      if (now > resetAt) {
+        user.sessions.weekly = null;
+        needsSave = true;
+        logger.info('⏰ Weekly session expired and deleted');
+      }
+    }
+
+    // 3. Monthly Session - ARCHIVE if expired
+    if (user.sessions.monthly) {
+      const resetAt = new Date(user.sessions.monthly.reset_at);
+      if (now > resetAt) {
+        // Archive previous session
+        if (!user.sessions.monthly_archive) {
+          user.sessions.monthly_archive = [];
+        }
+
+        user.sessions.monthly_archive.push({
+          ...user.sessions.monthly,
+          archived_at: now.toISOString()
+        });
+
+        // Keep max 12 months (FIFO)
+        if (user.sessions.monthly_archive.length > 12) {
+          user.sessions.monthly_archive.shift();
+        }
+
+        // Create NEW session immediately
+        user.sessions.monthly = await this.createNewMonthlySession();
+        needsSave = true;
+        logger.info('📅 Monthly session archived, new session started');
+      }
+    }
+
+    if (needsSave) {
+      await this.setUser(user);
+    }
+
+    return needsSave;
+  }
+
+  // ===== MESSAGE PAIR TRACKING =====
+
+  async addMessagePairToSessions(chatId, humanIndex, assistantIndex, humanMessage, assistantMessage) {
+    const user = await this.getUser();
+    if (!user) {
+      logger.warning('Cannot add message pair: no user');
+      return false;
+    }
+
+    // AUTO-INITIALIZE sessions if not exists
+    if (!user.sessions) {
+      logger.info('🔧 Auto-initializing sessions...');
+      await this.initializeSessions();
+      // Re-fetch user with sessions
+      const updatedUser = await this.getUser();
+      if (!updatedUser || !updatedUser.sessions) {
+        logger.error('Failed to auto-initialize sessions');
+        return false;
+      }
+      // Update user reference
+      user.sessions = updatedUser.sessions;
+      user.stats_changelog = updatedUser.stats_changelog || [];
+    }
+
+    const now = new Date();
+    let needsSave = false;
+
+    // Calculate stats for this pair
+    const pairStats = {
+      chars: (humanMessage.stats.total_chars || 0) + (assistantMessage.stats.total_chars || 0),
+      tokens_estimated: (humanMessage.stats.total_tokens_estimated || 0) + (assistantMessage.stats.total_tokens_estimated || 0)
+    };
+
+    // Check if Opus
+    const isOpus = assistantMessage.model && assistantMessage.model.includes('opus');
+
+    const pair = { human: humanIndex, assistant: assistantIndex };
+
+    // 1. Current Session (5hr)
+    if (!user.sessions.current) {
+      user.sessions.current = this.createNewCurrentSession(humanMessage.created_at);
+      needsSave = true;
+      logger.info('🆕 New current session started');
+    }
+
+    if (user.sessions.current) {
+      const chatPair = user.sessions.current.message_pairs.find(mp => mp.chat_id === chatId);
+      if (chatPair) {
+        chatPair.pair_indexes.push(pair);
+      } else {
+        user.sessions.current.message_pairs.push({
+          chat_id: chatId,
+          pair_indexes: [pair]
+        });
+      }
+
+      // Update stats
+      user.sessions.current.stats.total_pairs++;
+      user.sessions.current.stats.total_chars += pairStats.chars;
+      user.sessions.current.stats.total_tokens_estimated += pairStats.tokens_estimated;
+      needsSave = true;
+    }
+
+    // 2. Weekly Session (7 days)
+    if (!user.sessions.weekly) {
+      user.sessions.weekly = await this.createNewWeeklySession();
+      needsSave = true;
+      logger.info('🆕 New weekly session started');
+    }
+
+    if (user.sessions.weekly) {
+      const chatPair = user.sessions.weekly.message_pairs.find(mp => mp.chat_id === chatId);
+      if (chatPair) {
+        chatPair.pair_indexes.push(pair);
+      } else {
+        user.sessions.weekly.message_pairs.push({
+          chat_id: chatId,
+          pair_indexes: [pair]
+        });
+      }
+
+      // Update stats
+      user.sessions.weekly.stats.total_pairs++;
+      user.sessions.weekly.stats.total_chars += pairStats.chars;
+      user.sessions.weekly.stats.total_tokens_estimated += pairStats.tokens_estimated;
+
+      // Opus subset (if opus)
+      if (isOpus) {
+        user.sessions.weekly.stats.opus_subset.total_pairs++;
+        user.sessions.weekly.stats.opus_subset.total_chars += pairStats.chars;
+        user.sessions.weekly.stats.opus_subset.total_tokens_estimated += pairStats.tokens_estimated;
+      }
+
+      needsSave = true;
+    }
+
+    // 3. Monthly Session (30 days)
+    if (!user.sessions.monthly) {
+      user.sessions.monthly = await this.createNewMonthlySession();
+      needsSave = true;
+      logger.info('🆕 New monthly session started');
+    }
+
+    if (user.sessions.monthly) {
+      const chatPair = user.sessions.monthly.message_pairs.find(mp => mp.chat_id === chatId);
+      if (chatPair) {
+        chatPair.pair_indexes.push(pair);
+      } else {
+        user.sessions.monthly.message_pairs.push({
+          chat_id: chatId,
+          pair_indexes: [pair]
+        });
+      }
+
+      // Update stats
+      user.sessions.monthly.stats.total_pairs++;
+      user.sessions.monthly.stats.total_chars += pairStats.chars;
+      user.sessions.monthly.stats.total_tokens_estimated += pairStats.tokens_estimated;
+      needsSave = true;
+    }
+
+    if (needsSave) {
+      await this.setUser(user);
+
+      // Add to changelog
+      await this.addToChangelog({
+        type: 'message_pair_added',
+        chat_id: chatId,
+        pair: pair,
+        is_opus: isOpus,
+        delta: pairStats
+      });
+
+      logger.debug('Message pair added to sessions', { chatId, pair, isOpus });
+    }
+
+    return true;
+  }
+
+  // ===== STATS CHANGELOG =====
+
+  async addToChangelog(entry) {
+    const user = await this.getUser();
+    if (!user) return false;
+
+    if (!user.stats_changelog) {
+      user.stats_changelog = [];
+    }
+
+    user.stats_changelog.push({
+      timestamp: new Date().toISOString(),
+      ...entry
+    });
+
+    // Max 100 entries (FIFO)
+    if (user.stats_changelog.length > 100) {
+      user.stats_changelog.shift();
+    }
+
+    await this.setUser(user);
+    return true;
+  }
+
+  async getChangelog(limit = 10) {
+    const user = await this.getUser();
+    if (!user || !user.stats_changelog) return [];
+
+    // Return last N entries
+    return user.stats_changelog.slice(-limit).reverse();
+  }
+
+  // ===== SESSION STATS RECALCULATION =====
+
+  async recalculateSessionStats(sessionType) {
+    const user = await this.getUser();
+    if (!user || !user.sessions) return false;
+
+    const session = user.sessions[sessionType];
+    if (!session) return false;
+
+    // Reset stats
+    session.stats = {
+      total_pairs: 0,
+      total_chars: 0,
+      total_tokens_estimated: 0
+    };
+
+    if (sessionType === 'weekly') {
+      session.stats.opus_subset = {
+        total_pairs: 0,
+        total_chars: 0,
+        total_tokens_estimated: 0
+      };
+    }
+
+    // Recalculate from message pairs
+    for (const chatPair of session.message_pairs) {
+      const chat = await this.getChat(chatPair.chat_id);
+      if (!chat) continue;
+
+      for (const pair of chatPair.pair_indexes) {
+        const humanMsg = chat.messages[pair.human];
+        const assistantMsg = chat.messages[pair.assistant];
+
+        if (!humanMsg || !assistantMsg) continue;
+
+        const pairStats = {
+          chars: (humanMsg.stats.total_chars || 0) + (assistantMsg.stats.total_chars || 0),
+          tokens_estimated: (humanMsg.stats.total_tokens_estimated || 0) + (assistantMsg.stats.total_tokens_estimated || 0)
+        };
+
+        session.stats.total_pairs++;
+        session.stats.total_chars += pairStats.chars;
+        session.stats.total_tokens_estimated += pairStats.tokens_estimated;
+
+        // Opus subset (weekly only)
+        if (sessionType === 'weekly' && assistantMsg.model && assistantMsg.model.includes('opus')) {
+          session.stats.opus_subset.total_pairs++;
+          session.stats.opus_subset.total_chars += pairStats.chars;
+          session.stats.opus_subset.total_tokens_estimated += pairStats.tokens_estimated;
+        }
+      }
+    }
+
+    await this.setUser(user);
+    logger.success(`${sessionType} session stats recalculated`, session.stats);
+    return true;
   }
 }
 

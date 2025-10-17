@@ -16,7 +16,9 @@ const storage = new StorageManagerV2();
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'TRACKER_V2_STORAGE') {
-    handleStorageAction(message.action, message.data)
+    // AUTOMATIC SESSION CLEANUP CHECK (every request)
+    storage.checkAndCleanupExpiredSessions()
+      .then(() => handleStorageAction(message.action, message.data))
       .then(result => sendResponse({ success: true, data: result }))
       .catch(error => sendResponse({ success: false, error: error.message }));
 
@@ -69,6 +71,14 @@ async function handleStorageAction(action, data) {
     case 'GET_MESSAGE':
       return await storage.getMessage(data.chatId, data.index);
 
+    // ===== GET ALL CHATS =====
+    case 'GET_ALL_CHATS':
+      return await storage.getAllChats();
+
+    // ===== UPDATE CHAT MESSAGES =====
+    case 'UPDATE_CHAT_MESSAGES':
+      return await storage.updateChatMessages(data.chatId, data.chat);
+
     // ===== GET PROJECT =====
     case 'GET_PROJECT':
       return await storage.getProject(data.projectId);
@@ -104,6 +114,43 @@ async function handleStorageAction(action, data) {
       await chrome.storage.local.clear();
       console.log('🗑️ [Worker] Storage cleared');
       return { success: true };
+
+    // ===== SESSION TRACKING =====
+    case 'INITIALIZE_SESSIONS':
+      return await storage.initializeSessions();
+
+    case 'GET_SESSIONS':
+      return await storage.getSessions();
+
+    case 'GET_SESSION_STATS':
+      const sessions = await storage.getSessions();
+      if (!sessions) return null;
+
+      return {
+        current: sessions.current?.stats || null,
+        weekly: sessions.weekly?.stats || null,
+        monthly: sessions.monthly?.stats || null,
+        monthly_archive: sessions.monthly_archive?.map(s => ({
+          reset_at: s.reset_at,
+          archived_at: s.archived_at,
+          stats: s.stats
+        })) || []
+      };
+
+    case 'ADD_MESSAGE_PAIR':
+      return await storage.addMessagePairToSessions(
+        data.chatId,
+        data.humanIndex,
+        data.assistantIndex,
+        data.humanMessage,
+        data.assistantMessage
+      );
+
+    case 'GET_CHANGELOG':
+      return await storage.getChangelog(data.limit || 10);
+
+    case 'RECALCULATE_SESSION_STATS':
+      return await storage.recalculateSessionStats(data.sessionType);
 
     default:
       throw new Error(`Unknown action: ${action}`);
