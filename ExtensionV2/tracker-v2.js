@@ -348,24 +348,116 @@
 
     console.log('📊 [V2] Processing chat data...');
 
-    // Extract messages
-    const messages = chatData.chat_messages || [];
-    
+    // Extract and process messages
+    const rawMessages = chatData.chat_messages || [];
+    const processedMessages = rawMessages.map((msg, index) => {
+      // Calculate message stats
+      const stats = calculateMessageStats(msg);
+
+      return {
+        uuid: msg.uuid,
+        index: index,
+        sender: msg.sender,
+        parent_message_uuid: msg.parent_message_uuid || null,
+        created_at: msg.created_at,
+        updated_at: msg.updated_at,
+        stop_reason: msg.completion?.stop_reason || null,
+        content: msg.content || [],
+        attachments: msg.attachments || [],
+        files: msg.files || [],
+        sync_sources: msg.sync_sources || [],
+        stats: stats
+      };
+    });
+
+    // Prepare chat object with embedded messages
+    const chatObj = {
+      uuid: chatData.uuid,
+      name: chatData.name || 'Untitled Chat',
+      summary: chatData.summary || '',
+      project_uuid: chatData.project_uuid || null,
+      created_at: chatData.created_at,
+      updated_at: chatData.updated_at,
+      is_starred: chatData.is_starred || false,
+      settings: chatData.settings || {},
+      messages: processedMessages  // ← Embedded directly!
+    };
+
     // Save chat to storage
+    // Use project_uuid from chat data if available, otherwise fall back to context
+    const projectId = chatObj.project_uuid || context.projectId || '_no_project';
+
     await sendToStorage({
       action: 'SAVE_CHAT',
       data: {
         userId: context.userId,
         orgId: context.orgId,
-        projectId: context.projectId || '_no_project',
-        chat: chatData,
-        messages: messages
+        projectId: projectId,
+        chat: chatObj
       }
     });
 
-    console.log('✅ [V2] Chat saved:', chatData.name || chatData.uuid);
-    console.log(`   Messages: ${messages.length}`);
-    console.log(`   Pairs: ${Math.floor(messages.length / 2)}`);
+    console.log('✅ [V2] Chat saved:', chatObj.name);
+    console.log(`   Project: ${projectId}`);
+    console.log(`   Messages: ${processedMessages.length}`);
+    console.log(`   Pairs: ${Math.floor(processedMessages.length / 2)}`);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // MESSAGE STATS CALCULATION
+  // ═══════════════════════════════════════════════════════════════════
+
+  function calculateMessageStats(message) {
+    const stats = {
+      total_chars: 0,
+      total_tokens_estimated: 0,
+      total_tokens_actual: null,
+      by_type: {}
+    };
+
+    // Get token ratios and estimation function from constants
+    const { estimateTokens } = window.TrackerV2Utils || {};
+    if (!estimateTokens) {
+      console.warn('⚠️ TrackerV2Utils not available, using default estimation');
+    }
+
+    // Process content blocks
+    if (message.content && Array.isArray(message.content)) {
+      for (const block of message.content) {
+        const contentType = block.type || 'text';
+        const text = block.text || block.thinking || '';
+        const chars = text.length;
+
+        stats.total_chars += chars;
+
+        // Estimate tokens
+        const tokens = estimateTokens
+          ? estimateTokens(chars, contentType)
+          : Math.ceil(chars / 2.6); // Fallback
+
+        stats.total_tokens_estimated += tokens;
+
+        // Track by type
+        if (!stats.by_type[contentType]) {
+          stats.by_type[contentType] = { chars: 0, tokens_estimated: 0 };
+        }
+        stats.by_type[contentType].chars += chars;
+        stats.by_type[contentType].tokens_estimated += tokens;
+      }
+    }
+
+    // Add actual tokens if available (from API)
+    if (message.completion?.usage) {
+      const usage = message.completion.usage;
+      stats.total_tokens_actual = {
+        input_tokens: usage.input_tokens || 0,
+        output_tokens: usage.output_tokens || 0,
+        cache_creation_input_tokens: usage.cache_creation_input_tokens || 0,
+        cache_read_input_tokens: usage.cache_read_input_tokens || 0
+      };
+    }
+
+    return stats;
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -469,49 +561,43 @@
               data: { chatId }
             });
 
-            if (!chat || !chat.message_indexes) {
+            if (!chat || !chat.messages) {
               result = [];
               break;
             }
 
             const pairs = [];
-            for (let i = 0; i < chat.message_indexes.length; i += 2) {
-              const humanIdx = chat.message_indexes[i];
-              const assistantIdx = chat.message_indexes[i + 1];
+            for (let i = 0; i < chat.messages.length; i += 2) {
+              const human = chat.messages[i];
+              const assistant = chat.messages[i + 1];
 
-              if (assistantIdx === undefined) break;
+              if (!assistant) break;
 
-              const human = await sendToStorage({
-                action: 'GET_MESSAGE',
-                data: { chatId, index: humanIdx }
+              const humanPreview = human.content
+                ?.map(c => c.text || '')
+                .join(' ')
+                .substring(0, 100) || '';
+
+              const assistantPreview = assistant.content
+                ?.map(c => c.text || '')
+                .join(' ')
+                .substring(0, 100) || '';
+
+              pairs.push({
+                pair_number: Math.floor(i / 2) + 1,
+                human_uuid: human.uuid,
+                human_index: human.index,
+                human_chars: human.stats.total_chars,
+                human_tokens: human.stats.total_tokens_estimated,
+                human_preview: humanPreview,
+                assistant_uuid: assistant.uuid,
+                assistant_index: assistant.index,
+                assistant_chars: assistant.stats.total_chars,
+                assistant_tokens: assistant.stats.total_tokens_estimated,
+                assistant_preview: assistantPreview,
+                total_chars: human.stats.total_chars + assistant.stats.total_chars,
+                total_tokens_estimated: human.stats.total_tokens_estimated + assistant.stats.total_tokens_estimated
               });
-
-              const assistant = await sendToStorage({
-                action: 'GET_MESSAGE',
-                data: { chatId, index: assistantIdx }
-              });
-
-              if (human && assistant) {
-                const humanPreview = human.content
-                  ?.map(c => c.text || '')
-                  .join(' ')
-                  .substring(0, 100) || '';
-
-                const assistantPreview = assistant.content
-                  ?.map(c => c.text || '')
-                  .join(' ')
-                  .substring(0, 100) || '';
-
-                pairs.push({
-                  pair_number: Math.floor(i / 2) + 1,
-                  human_index: humanIdx,
-                  assistant_index: assistantIdx,
-                  human_preview: humanPreview,
-                  assistant_preview: assistantPreview,
-                  total_tokens_estimated: (human.stats?.total_tokens_estimated || 0) +
-                                         (assistant.stats?.total_tokens_estimated || 0)
-                });
-              }
             }
 
             result = pairs;
@@ -540,6 +626,61 @@
 
           case 'GET_GITHUB_CACHE':
             result = { ...githubTreeCache };
+            break;
+
+          case 'DELETE_CHAT':
+            await sendToStorage({
+              action: 'DELETE_CHAT',
+              data: { chatId: data.chatId }
+            });
+            result = { success: true };
+            break;
+
+          case 'DELETE_PROJECT':
+            await sendToStorage({
+              action: 'DELETE_PROJECT',
+              data: { projectId: data.projectId }
+            });
+            result = { success: true };
+            break;
+
+          case 'GET_BLACKLIST':
+            result = await sendToStorage({
+              action: 'GET_BLACKLIST',
+              data: {}
+            });
+            break;
+
+          case 'BLACKLIST_CHAT':
+            await sendToStorage({
+              action: 'ADD_TO_BLACKLIST',
+              data: { type: 'chat', id: data.chatId }
+            });
+            result = { success: true };
+            break;
+
+          case 'BLACKLIST_PROJECT':
+            await sendToStorage({
+              action: 'ADD_TO_BLACKLIST',
+              data: { type: 'project', id: data.projectId }
+            });
+            result = { success: true };
+            break;
+
+          case 'UNBLACKLIST_CHAT':
+            await sendToStorage({
+              action: 'REMOVE_FROM_BLACKLIST',
+              data: { type: 'chat', id: data.chatId }
+            });
+            result = { success: true };
+            break;
+
+          case 'UNBLACKLIST_PROJECT':
+            await sendToStorage({
+              action: 'REMOVE_FROM_BLACKLIST',
+              data: { type: 'project', id: data.projectId }
+            });
+            result = { success: true };
             break;
 
           case 'EXPORT_DATA':

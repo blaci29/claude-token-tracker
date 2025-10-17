@@ -38,7 +38,7 @@ async function handleStorageAction(action, data) {
 
     // ===== SAVE CHAT =====
     case 'SAVE_CHAT':
-      const { userId, orgId, projectId, chat, messages } = data;
+      const { userId, orgId, projectId, chat } = data;
 
       // Ensure user exists
       if (userId) {
@@ -53,16 +53,11 @@ async function handleStorageAction(action, data) {
       // Ensure project exists
       await storage.ensureProject(projectId);
 
-      // Save chat
+      // Save chat (messages are embedded in chat object)
       await storage.setChat(chat.uuid, chat);
 
       // Add chat to project
       await storage.addChatToProject(projectId, chat.uuid);
-
-      // Save messages
-      for (const message of messages) {
-        await storage.setMessage(chat.uuid, message.index, message);
-      }
 
       // Update stats
       await storage.updateChatStats(chat.uuid);
@@ -77,6 +72,28 @@ async function handleStorageAction(action, data) {
     // ===== GET PROJECT =====
     case 'GET_PROJECT':
       return await storage.getProject(data.projectId);
+
+    // ===== DELETE CHAT =====
+    case 'DELETE_CHAT':
+      await storage.deleteChat(data.chatId);
+      return { success: true };
+
+    // ===== DELETE PROJECT =====
+    case 'DELETE_PROJECT':
+      await storage.deleteProject(data.projectId);
+      return { success: true };
+
+    // ===== BLACKLIST =====
+    case 'GET_BLACKLIST':
+      return await storage.getBlacklist();
+
+    case 'ADD_TO_BLACKLIST':
+      await storage.addToBlacklist(data.type, data.id);
+      return { success: true };
+
+    case 'REMOVE_FROM_BLACKLIST':
+      await storage.removeFromBlacklist(data.type, data.id);
+      return { success: true };
 
     // ===== EXPORT ALL =====
     case 'EXPORT_ALL':

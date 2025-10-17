@@ -300,9 +300,13 @@
       if (result && !result.error) {
         console.log(`\n📊 Chat: ${result.name}`);
         console.log(`   UUID: ${result.uuid}`);
-        console.log(`   Messages: ${result.message_count} (${result.message_pair_count} pairs)`);
+        console.log(`   Messages: ${result.stats?.total_messages || result.messages?.length || 0} (${result.stats?.total_pairs || 0} pairs)`);
         console.log(`   Total chars: ${result.stats?.total_chars?.toLocaleString() || 0}`);
         console.log(`   Est. tokens: ${result.stats?.total_tokens_estimated?.toLocaleString() || 0}`);
+        if (result.stats?.total_tokens_actual_input || result.stats?.total_tokens_actual_output) {
+          console.log(`   Actual tokens: ${(result.stats.total_tokens_actual_input + result.stats.total_tokens_actual_output).toLocaleString()}`);
+          console.log(`      Input: ${result.stats.total_tokens_actual_input.toLocaleString()}, Output: ${result.stats.total_tokens_actual_output.toLocaleString()}`);
+        }
       }
       return result;
     },
@@ -313,10 +317,12 @@
       if (result && Array.isArray(result)) {
         console.log(`\n📝 Message Pairs (${result.length}):\n`);
         result.forEach((pair, i) => {
-          console.log(`${i + 1}. Pair ${pair.pair_number}`);
-          console.log(`   Human: ${pair.human_preview}`);
-          console.log(`   Assistant: ${pair.assistant_preview}`);
-          console.log(`   Tokens: ~${pair.total_tokens_estimated}`);
+          console.log(`${i + 1}. Pair ${pair.pair_number} (indexes: ${pair.human_index}/${pair.assistant_index})`);
+          console.log(`   Human [${pair.human_uuid.substring(0, 8)}...]: ${pair.human_preview}`);
+          console.log(`      ${pair.human_chars} chars, ~${pair.human_tokens} tokens`);
+          console.log(`   Assistant [${pair.assistant_uuid.substring(0, 8)}...]: ${pair.assistant_preview}`);
+          console.log(`      ${pair.assistant_chars} chars, ~${pair.assistant_tokens} tokens`);
+          console.log(`   Total: ${pair.total_chars} chars, ~${pair.total_tokens_estimated} tokens\n`);
         });
       }
       return result;
@@ -367,6 +373,174 @@
       return result;
     },
 
+    // Download export as JSON file
+    async downloadJSON() {
+      const result = await this._sendCommand('EXPORT_DATA');
+      if (result && !result.error) {
+        const json = JSON.stringify(result, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `claude-tracker-export-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        console.log('✅ Data downloaded as JSON file!');
+      }
+      return result;
+    },
+
+    // Delete specific chat
+    async deleteChat(chatId) {
+      if (!chatId) {
+        console.error('❌ Please provide a chatId (string)');
+        console.log('💡 Tip: Use deleteCurrentChat() to delete the current chat');
+        return { error: 'No chatId provided' };
+      }
+
+      if (!confirm(`⚠️ Delete chat ${chatId}?`)) {
+        return { cancelled: true };
+      }
+
+      const result = await this._sendCommand('DELETE_CHAT', { chatId });
+      console.log('✅ Chat deleted:', chatId);
+      return result;
+    },
+
+    // Delete current chat
+    async deleteCurrentChat() {
+      const context = await this._sendCommand('GET_CONTEXT');
+      if (!context.chatId) {
+        console.error('❌ No current chat');
+        return { error: 'No current chat' };
+      }
+
+      return await this.deleteChat(context.chatId);
+    },
+
+    // Delete specific project (and all its chats)
+    async deleteProject(projectId) {
+      if (!projectId) {
+        console.error('❌ Please provide a projectId (string)');
+        console.log('💡 Tip: Use deleteCurrentProject() to delete the current project');
+        return { error: 'No projectId provided' };
+      }
+
+      if (projectId === '_no_project') {
+        console.error('❌ Cannot delete virtual project');
+        return { error: 'Cannot delete virtual project' };
+      }
+
+      if (!confirm(`⚠️ Delete project ${projectId} and ALL its chats?`)) {
+        return { cancelled: true };
+      }
+
+      const result = await this._sendCommand('DELETE_PROJECT', { projectId });
+      console.log('✅ Project deleted:', projectId);
+      return result;
+    },
+
+    // Delete current project
+    async deleteCurrentProject() {
+      const context = await this._sendCommand('GET_CONTEXT');
+      if (!context.projectId || context.projectId === '_no_project') {
+        console.error('❌ No current project or is virtual project');
+        return { error: 'No current project' };
+      }
+
+      return await this.deleteProject(context.projectId);
+    },
+
+    // Get blacklist
+    async getBlacklist() {
+      const result = await this._sendCommand('GET_BLACKLIST');
+      if (result) {
+        console.log('\n🚫 Blacklist:');
+        console.log(`   Projects (${result.projects?.length || 0}):`, result.projects);
+        console.log(`   Chats (${result.chats?.length || 0}):`, result.chats);
+      }
+      return result;
+    },
+
+    // Blacklist chat (prevents tracking)
+    async blacklistChat(chatId) {
+      if (!chatId) {
+        console.error('❌ Please provide a chatId (string)');
+        console.log('💡 Tip: Use blacklistCurrentChat() to blacklist the current chat');
+        return { error: 'No chatId provided' };
+      }
+
+      const result = await this._sendCommand('BLACKLIST_CHAT', { chatId });
+      console.log('🚫 Chat blacklisted (tracking disabled):', chatId);
+      return result;
+    },
+
+    // Blacklist current chat
+    async blacklistCurrentChat() {
+      const context = await this._sendCommand('GET_CONTEXT');
+      if (!context.chatId) {
+        console.error('❌ No current chat');
+        return { error: 'No current chat' };
+      }
+
+      return await this.blacklistChat(context.chatId);
+    },
+
+    // Blacklist project (prevents tracking all chats in project)
+    async blacklistProject(projectId) {
+      if (!projectId) {
+        console.error('❌ Please provide a projectId (string)');
+        console.log('💡 Tip: Use blacklistCurrentProject() to blacklist the current project');
+        return { error: 'No projectId provided' };
+      }
+
+      if (projectId === '_no_project') {
+        console.error('❌ Cannot blacklist virtual project');
+        return { error: 'Cannot blacklist virtual project' };
+      }
+
+      const result = await this._sendCommand('BLACKLIST_PROJECT', { projectId });
+      console.log('🚫 Project blacklisted (tracking disabled for all chats):', projectId);
+      return result;
+    },
+
+    // Blacklist current project
+    async blacklistCurrentProject() {
+      const context = await this._sendCommand('GET_CONTEXT');
+      if (!context.projectId || context.projectId === '_no_project') {
+        console.error('❌ No current project or is virtual project');
+        return { error: 'No current project' };
+      }
+
+      return await this.blacklistProject(context.projectId);
+    },
+
+    // Remove chat from blacklist
+    async unblacklistChat(chatId) {
+      if (!chatId) {
+        console.error('❌ Please provide a chatId');
+        return { error: 'No chatId provided' };
+      }
+
+      const result = await this._sendCommand('UNBLACKLIST_CHAT', { chatId });
+      console.log('✅ Chat removed from blacklist (tracking enabled):', chatId);
+      return result;
+    },
+
+    // Remove project from blacklist
+    async unblacklistProject(projectId) {
+      if (!projectId) {
+        console.error('❌ Please provide a projectId');
+        return { error: 'No projectId provided' };
+      }
+
+      const result = await this._sendCommand('UNBLACKLIST_PROJECT', { projectId });
+      console.log('✅ Project removed from blacklist (tracking enabled):', projectId);
+      return result;
+    },
+
     // Reset storage (dangerous!)
     async resetStorage() {
       if (!confirm('⚠️ This will DELETE ALL V2 tracking data! Are you sure?')) {
@@ -383,15 +557,33 @@
   console.log('🎯 Claude Token Tracker V2 - Page Injected Script Ready!');
   console.log('');
   console.log('📌 Debug Commands:');
-  console.log('   window.claudeTrackerV2.getContext()');
-  console.log('   window.claudeTrackerV2.getCurrentRound()');
-  console.log('   window.claudeTrackerV2.getChatSummary()');
-  console.log('   window.claudeTrackerV2.listRounds()');
-  console.log('   window.claudeTrackerV2.getMessage(index)');
-  console.log('   window.claudeTrackerV2.getProjectInfo()');
-  console.log('   window.claudeTrackerV2.getGithubCache()');
-  console.log('   window.claudeTrackerV2.exportData()');
-  console.log('   window.claudeTrackerV2.resetStorage()');
+  console.log('   window.claudeTrackerV2.getContext()            // Current context');
+  console.log('   window.claudeTrackerV2.getCurrentRound()       // Active round');
+  console.log('   window.claudeTrackerV2.getChatSummary()        // Chat stats');
+  console.log('   window.claudeTrackerV2.listRounds()            // All message pairs');
+  console.log('   window.claudeTrackerV2.getMessage(index)       // Get message');
+  console.log('   window.claudeTrackerV2.getProjectInfo()        // Project info');
+  console.log('   window.claudeTrackerV2.getGithubCache()        // GitHub cache');
+  console.log('');
+  console.log('📤 Export:');
+  console.log('   window.claudeTrackerV2.exportData()            // Copy to clipboard');
+  console.log('   window.claudeTrackerV2.downloadJSON()          // Download JSON file');
+  console.log('');
+  console.log('🗑️  Delete (removes data, allows re-tracking):');
+  console.log('   window.claudeTrackerV2.deleteCurrentChat()     // Delete THIS chat');
+  console.log('   window.claudeTrackerV2.deleteCurrentProject()  // Delete THIS project');
+  console.log('   window.claudeTrackerV2.deleteChat(chatId)      // Delete specific chat');
+  console.log('   window.claudeTrackerV2.deleteProject(projId)   // Delete specific project');
+  console.log('   window.claudeTrackerV2.resetStorage()          // ⚠️ DELETE ALL');
+  console.log('');
+  console.log('🚫 Blacklist (prevents tracking permanently):');
+  console.log('   window.claudeTrackerV2.getBlacklist()           // Show blacklist');
+  console.log('   window.claudeTrackerV2.blacklistCurrentChat()   // Blacklist THIS chat');
+  console.log('   window.claudeTrackerV2.blacklistCurrentProject()// Blacklist THIS project');
+  console.log('   window.claudeTrackerV2.blacklistChat(chatId)    // Blacklist specific chat');
+  console.log('   window.claudeTrackerV2.blacklistProject(prjId)  // Blacklist specific project');
+  console.log('   window.claudeTrackerV2.unblacklistChat(chatId)  // Remove from blacklist');
+  console.log('   window.claudeTrackerV2.unblacklistProject(id)   // Remove from blacklist');
   console.log('');
 
 })();
