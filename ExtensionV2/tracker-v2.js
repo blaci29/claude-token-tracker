@@ -435,6 +435,144 @@
       }
     }
 
+    // ===== COMMAND FROM PAGE CONSOLE =====
+    else if (message.type === 'CLAUDE_TRACKER_V2_COMMAND') {
+      const { command, data, messageId } = message;
+      let result = null;
+
+      try {
+        switch (command) {
+          case 'GET_CONTEXT':
+            result = { ...context };
+            break;
+
+          case 'GET_CURRENT_ROUND':
+            result = { ...currentRound };
+            break;
+
+          case 'GET_CHAT_SUMMARY':
+            result = await sendToStorage({
+              action: 'GET_CHAT',
+              data: { chatId: data.chatId || context.chatId }
+            });
+            break;
+
+          case 'LIST_ROUNDS':
+            const chatId = data.chatId || context.chatId;
+            if (!chatId) {
+              result = { error: 'No chat ID' };
+              break;
+            }
+
+            const chat = await sendToStorage({
+              action: 'GET_CHAT',
+              data: { chatId }
+            });
+
+            if (!chat || !chat.message_indexes) {
+              result = [];
+              break;
+            }
+
+            const pairs = [];
+            for (let i = 0; i < chat.message_indexes.length; i += 2) {
+              const humanIdx = chat.message_indexes[i];
+              const assistantIdx = chat.message_indexes[i + 1];
+
+              if (assistantIdx === undefined) break;
+
+              const human = await sendToStorage({
+                action: 'GET_MESSAGE',
+                data: { chatId, index: humanIdx }
+              });
+
+              const assistant = await sendToStorage({
+                action: 'GET_MESSAGE',
+                data: { chatId, index: assistantIdx }
+              });
+
+              if (human && assistant) {
+                const humanPreview = human.content
+                  ?.map(c => c.text || '')
+                  .join(' ')
+                  .substring(0, 100) || '';
+
+                const assistantPreview = assistant.content
+                  ?.map(c => c.text || '')
+                  .join(' ')
+                  .substring(0, 100) || '';
+
+                pairs.push({
+                  pair_number: Math.floor(i / 2) + 1,
+                  human_index: humanIdx,
+                  assistant_index: assistantIdx,
+                  human_preview: humanPreview,
+                  assistant_preview: assistantPreview,
+                  total_tokens_estimated: (human.stats?.total_tokens_estimated || 0) +
+                                         (assistant.stats?.total_tokens_estimated || 0)
+                });
+              }
+            }
+
+            result = pairs;
+            break;
+
+          case 'GET_MESSAGE':
+            const msgChatId = data.chatId || context.chatId;
+            if (!msgChatId) {
+              result = { error: 'No chat ID' };
+              break;
+            }
+
+            result = await sendToStorage({
+              action: 'GET_MESSAGE',
+              data: { chatId: msgChatId, index: data.index }
+            });
+            break;
+
+          case 'GET_PROJECT_INFO':
+            const projectId = data.projectId || context.projectId || '_no_project';
+            result = await sendToStorage({
+              action: 'GET_PROJECT',
+              data: { projectId }
+            });
+            break;
+
+          case 'GET_GITHUB_CACHE':
+            result = { ...githubTreeCache };
+            break;
+
+          case 'EXPORT_DATA':
+            result = await sendToStorage({
+              action: 'EXPORT_ALL',
+              data: {}
+            });
+            break;
+
+          case 'RESET_STORAGE':
+            await sendToStorage({
+              action: 'RESET_ALL',
+              data: {}
+            });
+            result = { success: true };
+            break;
+
+          default:
+            result = { error: 'Unknown command' };
+        }
+      } catch (error) {
+        result = { error: error.message };
+      }
+
+      // Send response back to page
+      window.postMessage({
+        type: 'CLAUDE_TRACKER_V2_COMMAND_RESPONSE',
+        messageId,
+        result
+      }, '*');
+    }
+  });
+
   // ═══════════════════════════════════════════════════════════════════
   // URL CHANGE MONITORING
   // ═══════════════════════════════════════════════════════════════════
@@ -460,181 +598,10 @@
   });
 
   // ═══════════════════════════════════════════════════════════════════
-  // DEBUG COMMANDS
-  // ═══════════════════════════════════════════════════════════════════
-
-  window.claudeTrackerV2 = {
-    // Get current context
-    getContext() {
-      return { ...context };
-    },
-
-    // Get current round
-    getCurrentRound() {
-      return { ...currentRound };
-    },
-
-    // Get chat summary
-    async getChatSummary(chatId = context.chatId) {
-      if (!chatId) {
-        console.error('❌ No chat ID provided');
-        return null;
-      }
-
-      return await sendToStorage({
-        action: 'GET_CHAT',
-        data: { chatId }
-      });
-    },
-
-    // List rounds (message pairs)
-    async listRounds(chatId = context.chatId) {
-      if (!chatId) {
-        console.error('❌ No chat ID provided');
-        return null;
-      }
-
-      const chat = await sendToStorage({
-        action: 'GET_CHAT',
-        data: { chatId }
-      });
-
-      if (!chat || !chat.message_indexes) return [];
-
-      const pairs = [];
-      for (let i = 0; i < chat.message_indexes.length; i += 2) {
-        const humanIdx = chat.message_indexes[i];
-        const assistantIdx = chat.message_indexes[i + 1];
-
-        const human = await sendToStorage({
-          action: 'GET_MESSAGE',
-          data: { chatId, index: humanIdx }
-        });
-
-        const assistant = await sendToStorage({
-          action: 'GET_MESSAGE',
-          data: { chatId, index: assistantIdx }
-        });
-
-        if (human && assistant) {
-          pairs.push({
-            pair: Math.floor(i / 2) + 1,
-            human: {
-              index: human.index,
-              chars: human.stats.total_chars,
-              tokens: human.stats.total_tokens_estimated
-            },
-            assistant: {
-              index: assistant.index,
-              chars: assistant.stats.total_chars,
-              tokens: assistant.stats.total_tokens_estimated
-            },
-            total_tokens: human.stats.total_tokens_estimated + assistant.stats.total_tokens_estimated
-          });
-        }
-      }
-
-      return pairs;
-    },
-
-    // Get message details
-    async getMessage(indexOrChatId, index = null) {
-      let chatId, messageIndex;
-
-      if (index === null) {
-        // Called with just index, use current chat
-        chatId = context.chatId;
-        messageIndex = indexOrChatId;
-      } else {
-        // Called with chatId and index
-        chatId = indexOrChatId;
-        messageIndex = index;
-      }
-
-      if (!chatId) {
-        console.error('❌ No chat ID');
-        return null;
-      }
-
-      return await sendToStorage({
-        action: 'GET_MESSAGE',
-        data: { chatId, index: messageIndex }
-      });
-    },
-
-    // Get project info
-    async getProjectInfo(projectId = context.projectId) {
-      const pid = projectId || context.projectId || '_no_project';
-
-      return await sendToStorage({
-        action: 'GET_PROJECT',
-        data: { projectId: pid }
-      });
-    },
-
-    // Get GitHub cache
-    getGithubCache() {
-      return { ...githubTreeCache };
-    },
-
-    // Export all data
-    async exportData() {
-      const data = await sendToStorage({
-        action: 'EXPORT_ALL',
-        data: {}
-      });
-
-      if (data) {
-        const json = JSON.stringify(data, null, 2);
-        
-        // Copy to clipboard
-        try {
-          await navigator.clipboard.writeText(json);
-          console.log('✅ Data exported to clipboard!');
-        } catch (e) {
-          console.log('📋 Data exported (see below):');
-          console.log(json);
-        }
-
-        return data;
-      }
-
-      return null;
-    },
-
-    // Reset storage
-    async resetStorage() {
-      if (!confirm('⚠️ This will DELETE ALL V2 tracking data! Are you sure?')) {
-        return;
-      }
-
-      await sendToStorage({
-        action: 'RESET_ALL',
-        data: {}
-      });
-
-      console.log('✅ Storage reset complete');
-      location.reload();
-    }
-  };
-
-  // ═══════════════════════════════════════════════════════════════════
   // INITIALIZATION
   // ═══════════════════════════════════════════════════════════════════
 
   console.log('🎯 Claude Token Tracker V2 - Content Script Ready!');
-  console.log('');
-  console.log('📌 Debug Commands:');
-  console.log('   window.claudeTrackerV2.getContext()');
-  console.log('   window.claudeTrackerV2.getCurrentRound()');
-  console.log('   window.claudeTrackerV2.getChatSummary()');
-  console.log('   window.claudeTrackerV2.listRounds()');
-  console.log('   window.claudeTrackerV2.getMessage(index)');
-  console.log('   window.claudeTrackerV2.getProjectInfo()');
-  console.log('   window.claudeTrackerV2.getGithubCache()');
-  console.log('   window.claudeTrackerV2.exportData()');
-  console.log('   window.claudeTrackerV2.resetStorage()');
-  console.log('');
 
   // Initial context detection
   setTimeout(() => {

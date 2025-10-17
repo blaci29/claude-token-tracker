@@ -242,7 +242,156 @@
   };
 
   console.log('✅ Fetch interceptor initialized');
+
+  // ═══════════════════════════════════════════════════════════════════
+  // DEBUG API (accessible from page console)
+  // ═══════════════════════════════════════════════════════════════════
+
+  window.claudeTrackerV2 = {
+    // Send command to content script and wait for response
+    async _sendCommand(command, data = {}) {
+      return new Promise((resolve) => {
+        const messageId = `cmd_${Date.now()}_${Math.random()}`;
+
+        // Listen for response
+        const listener = (event) => {
+          if (event.data?.type === 'CLAUDE_TRACKER_V2_COMMAND_RESPONSE' &&
+              event.data?.messageId === messageId) {
+            window.removeEventListener('message', listener);
+            resolve(event.data.result);
+          }
+        };
+
+        window.addEventListener('message', listener);
+
+        // Send command
+        window.postMessage({
+          type: 'CLAUDE_TRACKER_V2_COMMAND',
+          command,
+          data,
+          messageId
+        }, '*');
+
+        // Timeout after 5 seconds
+        setTimeout(() => {
+          window.removeEventListener('message', listener);
+          resolve({ error: 'Command timeout' });
+        }, 5000);
+      });
+    },
+
+    // Get current context
+    async getContext() {
+      const result = await this._sendCommand('GET_CONTEXT');
+      console.table(result);
+      return result;
+    },
+
+    // Get current round
+    async getCurrentRound() {
+      const result = await this._sendCommand('GET_CURRENT_ROUND');
+      console.log('Current Round:', result);
+      return result;
+    },
+
+    // Get chat summary
+    async getChatSummary(chatId = null) {
+      const result = await this._sendCommand('GET_CHAT_SUMMARY', { chatId });
+      if (result && !result.error) {
+        console.log(`\n📊 Chat: ${result.name}`);
+        console.log(`   UUID: ${result.uuid}`);
+        console.log(`   Messages: ${result.message_count} (${result.message_pair_count} pairs)`);
+        console.log(`   Total chars: ${result.stats?.total_chars?.toLocaleString() || 0}`);
+        console.log(`   Est. tokens: ${result.stats?.total_tokens_estimated?.toLocaleString() || 0}`);
+      }
+      return result;
+    },
+
+    // List all message pairs (rounds)
+    async listRounds(chatId = null) {
+      const result = await this._sendCommand('LIST_ROUNDS', { chatId });
+      if (result && Array.isArray(result)) {
+        console.log(`\n📝 Message Pairs (${result.length}):\n`);
+        result.forEach((pair, i) => {
+          console.log(`${i + 1}. Pair ${pair.pair_number}`);
+          console.log(`   Human: ${pair.human_preview}`);
+          console.log(`   Assistant: ${pair.assistant_preview}`);
+          console.log(`   Tokens: ~${pair.total_tokens_estimated}`);
+        });
+      }
+      return result;
+    },
+
+    // Get specific message
+    async getMessage(arg1, arg2) {
+      const data = typeof arg1 === 'number'
+        ? { index: arg1 }
+        : { chatId: arg1, index: arg2 };
+
+      const result = await this._sendCommand('GET_MESSAGE', data);
+      if (result && !result.error) {
+        console.log('\n📬 Message:', result);
+      }
+      return result;
+    },
+
+    // Get project info
+    async getProjectInfo(projectId = null) {
+      const result = await this._sendCommand('GET_PROJECT_INFO', { projectId });
+      if (result && !result.error) {
+        console.log('\n📁 Project:', result);
+      }
+      return result;
+    },
+
+    // Get GitHub cache
+    async getGithubCache() {
+      const result = await this._sendCommand('GET_GITHUB_CACHE');
+      if (result && !result.error) {
+        console.log('\n🌳 GitHub Cache:', result);
+      }
+      return result;
+    },
+
+    // Export all data
+    async exportData() {
+      const result = await this._sendCommand('EXPORT_DATA');
+      if (result && !result.error) {
+        try {
+          await navigator.clipboard.writeText(JSON.stringify(result, null, 2));
+          console.log('✅ Data exported to clipboard!');
+        } catch (e) {
+          console.log('📦 Export data:', result);
+        }
+      }
+      return result;
+    },
+
+    // Reset storage (dangerous!)
+    async resetStorage() {
+      if (!confirm('⚠️ This will DELETE ALL V2 tracking data! Are you sure?')) {
+        return;
+      }
+
+      const result = await this._sendCommand('RESET_STORAGE');
+      console.log('✅ Storage reset complete');
+      location.reload();
+      return result;
+    }
+  };
+
   console.log('🎯 Claude Token Tracker V2 - Page Injected Script Ready!');
+  console.log('');
+  console.log('📌 Debug Commands:');
+  console.log('   window.claudeTrackerV2.getContext()');
+  console.log('   window.claudeTrackerV2.getCurrentRound()');
+  console.log('   window.claudeTrackerV2.getChatSummary()');
+  console.log('   window.claudeTrackerV2.listRounds()');
+  console.log('   window.claudeTrackerV2.getMessage(index)');
+  console.log('   window.claudeTrackerV2.getProjectInfo()');
+  console.log('   window.claudeTrackerV2.getGithubCache()');
+  console.log('   window.claudeTrackerV2.exportData()');
+  console.log('   window.claudeTrackerV2.resetStorage()');
   console.log('');
 
 })();
