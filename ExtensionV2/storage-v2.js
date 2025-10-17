@@ -3,8 +3,8 @@
 // Service Worker Module
 // ═══════════════════════════════════════════════════════════════════
 
-// Import constants
-import { TRACKER_V2_CONSTANTS, logger } from './constants-v2.js';
+// Import constants (ES6 module version for service worker)
+import { TRACKER_V2_CONSTANTS, logger } from './constants-module.js';
 
 // ═══════════════════════════════════════════════════════════════════
 // STORAGE MANAGER

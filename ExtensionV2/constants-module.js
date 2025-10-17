@@ -1,12 +1,13 @@
 // ═══════════════════════════════════════════════════════════════════
-// Claude Token Tracker v2.0 - Constants
+// Claude Token Tracker v2.0 - Constants (ES6 Module)
+// For Service Worker use only
 // ═══════════════════════════════════════════════════════════════════
 
-const TRACKER_V2_CONSTANTS = {
+export const TRACKER_V2_CONSTANTS = {
   // ===== VERSION INFO =====
   VERSION: '2.0.0',
   STORAGE_KEY_PREFIX: 'claude_tracker_v2_',
-  
+
   // ===== TOKEN ESTIMATION RATIOS =====
   // Based on real API measurements (v1.6 research)
   TOKEN_RATIOS: {
@@ -17,26 +18,26 @@ const TRACKER_V2_CONSTANTS = {
     documents: 3.2,       // Files (typically code/technical)
     default: 2.6          // Fallback
   },
-  
+
   // ===== API ENDPOINTS =====
   API_ENDPOINTS: {
     // Chat
     CHAT_CONVERSATIONS: '/api/organizations/{orgId}/chat_conversations',
     CHAT_DETAIL: '/api/organizations/{orgId}/chat_conversations/{chatId}',
     COMPLETION: '/api/organizations/{orgId}/chat_conversations/{chatId}/completion',
-    
+
     // Projects
     PROJECT_DETAIL: '/api/organizations/{orgId}/projects/{projectId}',
-    
+
     // Sync
     SYNC_CHAT: '/api/organizations/{orgId}/sync/chat',
     SYNC_GITHUB_TREE: '/api/organizations/{orgId}/sync/github/repo/{owner}/{repo}/tree/{branch}',
-    
+
     // Account
     ACCOUNT_PROFILE: '/api/account_profile',
     ORGANIZATION_DETAIL: '/api/organizations/{orgId}'
   },
-  
+
   // ===== STORAGE KEYS =====
   STORAGE_KEYS: {
     VERSION: 'version',
@@ -47,23 +48,23 @@ const TRACKER_V2_CONSTANTS = {
     MESSAGES: 'messages',
     INITIALIZED_AT: 'initialized_at'
   },
-  
+
   // ===== GITHUB CACHE =====
   GITHUB_CACHE: {
     TTL_DAYS: 7,
     KEY_FORMAT: '{owner}/{repo}/{branch}'
   },
-  
+
   // ===== VIRTUAL PROJECT =====
   VIRTUAL_PROJECT_ID: '_no_project',
-  
+
   // ===== MESSAGE SETTINGS =====
   MESSAGE: {
     FETCH_DELAY_MS: 2000,  // Delay after SSE completion before fetching final data
     RETRY_ATTEMPTS: 3,
     RETRY_DELAY_MS: 1000
   },
-  
+
   // ===== DEBUG SETTINGS =====
   DEBUG: {
     ENABLED: true,
@@ -72,7 +73,7 @@ const TRACKER_V2_CONSTANTS = {
     LOG_TRACKING: true,      // Log tracking events
     LOG_ERRORS: true         // Log errors
   },
-  
+
   // ===== CONSOLE OUTPUT =====
   CONSOLE: {
     PREFIX: '🔍 TrackerV2:',
@@ -91,15 +92,15 @@ const TRACKER_V2_CONSTANTS = {
 /**
  * Get token ratio for content type
  */
-function getTokenRatio(contentType) {
-  return TRACKER_V2_CONSTANTS.TOKEN_RATIOS[contentType] 
+export function getTokenRatio(contentType) {
+  return TRACKER_V2_CONSTANTS.TOKEN_RATIOS[contentType]
     || TRACKER_V2_CONSTANTS.TOKEN_RATIOS.default;
 }
 
 /**
  * Estimate tokens from character count
  */
-function estimateTokens(chars, contentType = 'default') {
+export function estimateTokens(chars, contentType = 'default') {
   if (typeof chars === 'string') {
     chars = chars.length;
   }
@@ -110,92 +111,77 @@ function estimateTokens(chars, contentType = 'default') {
 /**
  * Calculate duration in seconds between timestamps
  */
-function calculateDuration(startTimestamp, stopTimestamp) {
+export function calculateDuration(startTimestamp, stopTimestamp) {
   if (!startTimestamp || !stopTimestamp) return 0;
-  
+
   const start = new Date(startTimestamp).getTime();
   const stop = new Date(stopTimestamp).getTime();
-  
+
   return (stop - start) / 1000;
 }
 
 /**
  * Build API endpoint URL
  */
-function buildEndpoint(endpoint, params = {}) {
+export function buildEndpoint(endpoint, params = {}) {
   let url = TRACKER_V2_CONSTANTS.API_ENDPOINTS[endpoint];
-  
+
   if (!url) return null;
-  
+
   // Replace placeholders
   Object.keys(params).forEach(key => {
     url = url.replace(`{${key}}`, params[key]);
   });
-  
+
   return url;
 }
 
 /**
  * Normalize GitHub path (ensure leading slash)
  */
-function normalizeGithubPath(path) {
+export function normalizeGithubPath(path) {
   return path.startsWith('/') ? path : '/' + path;
 }
 
 /**
  * Generate GitHub cache key
  */
-function getGithubCacheKey(owner, repo, branch) {
+export function getGithubCacheKey(owner, repo, branch) {
   return `${owner}/${repo}/${branch}`;
 }
 
 /**
  * Console logger with styling
  */
-const logger = {
+export const logger = {
   log(message, data = null, type = 'info') {
     if (!TRACKER_V2_CONSTANTS.DEBUG.ENABLED) return;
-    
+
     const color = TRACKER_V2_CONSTANTS.CONSOLE.COLORS[type];
     const prefix = TRACKER_V2_CONSTANTS.CONSOLE.PREFIX;
-    
+
     console.log(`%c${prefix} ${message}`, `color: ${color}; font-weight: bold`, data || '');
   },
-  
+
   info(message, data) {
     this.log(message, data, 'info');
   },
-  
+
   success(message, data) {
     this.log(message, data, 'success');
   },
-  
+
   warning(message, data) {
     this.log(message, data, 'warning');
   },
-  
+
   error(message, data) {
     if (TRACKER_V2_CONSTANTS.DEBUG.LOG_ERRORS) {
       this.log(message, data, 'error');
     }
   },
-  
+
   debug(message, data) {
     this.log(message, data, 'debug');
   }
 };
-
-// Export for content script (global scope)
-// This file is loaded as a regular script, NOT as a module
-if (typeof window !== 'undefined') {
-  window.TRACKER_V2_CONSTANTS = TRACKER_V2_CONSTANTS;
-  window.TrackerV2Utils = {
-    getTokenRatio,
-    estimateTokens,
-    calculateDuration,
-    buildEndpoint,
-    normalizeGithubPath,
-    getGithubCacheKey,
-    logger
-  };
-}
