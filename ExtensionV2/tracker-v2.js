@@ -51,6 +51,12 @@
   const githubTreeCache = {};
 
   // ═══════════════════════════════════════════════════════════════════
+  // ISSUE REGISTRY: Track messages with missing GitHub files
+  // ═══════════════════════════════════════════════════════════════════
+  // Format: { 'owner/repo/branch': [{ chatId, messageIndex }, ...] }
+  const githubIssueRegistry = {};
+
+  // ═══════════════════════════════════════════════════════════════════
   // USER ID DETECTION (from cookie)
   // ═══════════════════════════════════════════════════════════════════
 
@@ -257,161 +263,137 @@
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // AUTO-FIX: MISSING GITHUB FILES
+  // AUTO-FIX: MISSING GITHUB FILES (Registry-Based)
   // ═══════════════════════════════════════════════════════════════════
 
-  async function autoFixMissingGithubFiles(repoKey) {
-    console.log('🔧 [V2] Auto-fix: Searching for messages with missing GitHub files for', repoKey);
-
-    // Get all chats with incomplete messages from storage
-    let allChats;
-    try {
-      allChats = await sendToStorage({
-        action: 'GET_ALL_CHATS',
-        data: {}
-      });
-    } catch (error) {
-      console.error('❌ [V2] Auto-fix: Failed to get chats from storage:', error);
+  async function fixRegisteredGithubIssues(repoKey) {
+    // Check if there are any registered issues for this repo
+    const registeredIssues = githubIssueRegistry[repoKey];
+    if (!registeredIssues || registeredIssues.length === 0) {
+      console.log(`ℹ️ [V2] No registered issues for ${repoKey}`);
       return;
     }
 
-    if (!allChats || allChats.length === 0) {
-      console.log('ℹ️ [V2] Auto-fix: No chats found');
-      return;
+    console.log(`🔧 [V2] Fixing ${registeredIssues.length} registered issues for ${repoKey}`);
+
+    // Group by chatId for efficient processing
+    const issuesByChat = {};
+    for (const issue of registeredIssues) {
+      if (!issuesByChat[issue.chatId]) {
+        issuesByChat[issue.chatId] = [];
+      }
+      issuesByChat[issue.chatId].push(issue.messageIndex);
     }
 
-    console.log(`🔍 [V2] Auto-fix: Checking ${allChats.length} chats...`);
-
-    let totalChatsFixed = 0;
     let totalMessagesFixed = 0;
 
-    for (const chat of allChats) {
-      // Skip chats with no data_status or all complete
-      if (!chat.data_status || chat.data_status.complete) {
-        console.log(`⏭️ [V2] Auto-fix: Skipping chat "${chat.name}" (complete or no data_status)`);
+    // Process each affected chat
+    for (const [chatId, messageIndices] of Object.entries(issuesByChat)) {
+      console.log(`   📝 [V2] Fixing chat ${chatId}: ${messageIndices.length} messages`);
+
+      // Get chat from storage
+      const chat = await sendToStorage({
+        action: 'GET_CHAT',
+        data: { chatId }
+      });
+
+      if (!chat || !chat.messages) {
+        console.warn(`   ⚠️ [V2] Chat not found or has no messages: ${chatId}`);
         continue;
       }
 
-      console.log(`🔎 [V2] Auto-fix: Checking chat "${chat.name}" (incomplete_message_count: ${chat.data_status.incomplete_message_count})...`);
+      let chatModified = false;
+      const updatedMessages = [...chat.messages];
 
-      let chatNeedsUpdate = false;
-      const updatedMessages = [];
+      // Fix each registered message
+      for (const messageIndex of messageIndices) {
+        const message = updatedMessages[messageIndex];
+        if (!message) {
+          console.warn(`   ⚠️ [V2] Message not found at index ${messageIndex}`);
+          continue;
+        }
 
-      for (const message of chat.messages || []) {
-        let messageNeedsUpdate = false;
-        let messageFixed = { ...message };
+        // Re-expand sync sources with fresh cache
+        const expandedFiles = [];
+        const updatedSyncSources = [];
+        let messageFixed = false;
 
-        // Check if message has issues related to this repo
-        if (message.data_status && !message.data_status.complete && message.data_status.issues) {
-          console.log(`   📝 [V2] Message ${message.index}: has ${message.data_status.issues.length} issues`);
+        for (const syncSource of message.sync_sources || []) {
+          const files = expandSyncSourceFiles(syncSource);
 
-          const hasRepoIssue = message.data_status.issues.some(
-            issue => {
-              const matches = issue.type === 'missing_github_files' &&
-                              issue.required_data &&
-                              issue.required_data.includes(repoKey);
-
-              if (issue.type === 'missing_github_files') {
-                console.log(`      Issue: ${issue.type}, required_data:`, issue.required_data, `matches repo "${repoKey}":`, matches);
-              }
-
-              return matches;
-            }
-          );
-
-          if (hasRepoIssue) {
-            console.log(`   ✅ [V2] Message ${message.index}: Found matching repo issue, attempting fix...`);
-            // Re-expand sync sources with new cache
-            const expandedFiles = [];
-            const updatedSyncSources = [];
-
-            for (const syncSource of message.sync_sources || []) {
-              const files = await expandSyncSourceFiles(syncSource);
-
-              if (files.length > 0) {
-                expandedFiles.push(...files);
-                updatedSyncSources.push({
-                  ...syncSource,
-                  expanded_files: files,
-                  issue: undefined  // Remove issue
-                });
-                messageNeedsUpdate = true;
-              } else {
-                // Still no files (keep issue)
-                updatedSyncSources.push(syncSource);
-              }
-            }
-
-            if (messageNeedsUpdate) {
-              // Recalculate stats with expanded files
-              const newStats = calculateMessageStats(message, expandedFiles);
-
-              // Update data_status (remove fixed issues)
-              const remainingIssues = message.data_status.issues.filter(
-                issue => !(issue.type === 'missing_github_files' &&
-                          issue.required_data &&
-                          issue.required_data.includes(repoKey))
-              );
-
-              const isComplete = remainingIssues.length === 0;
-
-              messageFixed = {
-                ...message,
-                sync_sources: updatedSyncSources,
-                stats: newStats,
-                data_status: {
-                  complete: isComplete,
-                  validated: isComplete,
-                  locked: false,
-                  issues: remainingIssues,
-                  last_sync: new Date().toISOString()
-                }
-              };
-
-              totalMessagesFixed++;
-              chatNeedsUpdate = true;
-            }
+          if (files.length > 0) {
+            expandedFiles.push(...files);
+            updatedSyncSources.push({
+              ...syncSource,
+              expanded_files: files,
+              issue: undefined  // Remove issue flag
+            });
+            messageFixed = true;
+          } else {
+            updatedSyncSources.push(syncSource);
           }
         }
 
-        updatedMessages.push(messageFixed);
+        if (messageFixed) {
+          // Recalculate stats
+          const newStats = calculateMessageStats(message, expandedFiles);
+
+          // Remove repo-specific issues
+          const remainingIssues = (message.data_status?.issues || []).filter(
+            issue => !(issue.type === 'missing_github_files' &&
+                       issue.required_data?.includes(repoKey))
+          );
+
+          const isComplete = remainingIssues.length === 0;
+
+          // Update message
+          updatedMessages[messageIndex] = {
+            ...message,
+            sync_sources: updatedSyncSources,
+            stats: newStats,
+            data_status: {
+              complete: isComplete,
+              validated: isComplete,
+              locked: false,
+              issues: remainingIssues,
+              last_sync: new Date().toISOString()
+            }
+          };
+
+          totalMessagesFixed++;
+          chatModified = true;
+        }
       }
 
-      if (chatNeedsUpdate) {
+      if (chatModified) {
         // Recalculate chat-level data_status
-        const incompleteMessageCount = updatedMessages.filter(m => !m.data_status.complete).length;
-        const allMessagesComplete = incompleteMessageCount === 0;
+        const incompleteCount = updatedMessages.filter(m => !m.data_status?.complete).length;
 
         const updatedChat = {
           ...chat,
           messages: updatedMessages,
           data_status: {
-            complete: allMessagesComplete,
-            all_messages_complete: allMessagesComplete,
-            incomplete_message_count: incompleteMessageCount,
+            complete: incompleteCount === 0,
+            all_messages_complete: incompleteCount === 0,
+            incomplete_message_count: incompleteCount,
             last_sync: new Date().toISOString()
           }
         };
 
-        // Save updated chat to storage
+        // Save to storage
         await sendToStorage({
           action: 'UPDATE_CHAT_MESSAGES',
-          data: {
-            chatId: chat.uuid,
-            chat: updatedChat
-          }
+          data: { chatId, chat: updatedChat }
         });
 
-        totalChatsFixed++;
-        console.log(`✅ [V2] Auto-fix: Fixed chat "${chat.name}" (${updatedMessages.filter((m, i) => m !== chat.messages[i]).length} messages updated)`);
+        console.log(`   ✅ [V2] Chat updated: ${messageIndices.length} messages fixed`);
       }
     }
 
-    if (totalMessagesFixed > 0) {
-      console.log(`🎉 [V2] Auto-fix complete: ${totalMessagesFixed} messages fixed in ${totalChatsFixed} chats for repo ${repoKey}`);
-    } else {
-      console.log(`ℹ️ [V2] Auto-fix: No messages needed fixing for repo ${repoKey}`);
-    }
+    // Clear registry for this repo (issues are now fixed)
+    delete githubIssueRegistry[repoKey];
+
+    console.log(`🎉 [V2] Fixed ${totalMessagesFixed} messages for ${repoKey}`);
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -436,40 +418,15 @@
     // Save to memory cache (for current session)
     githubTreeCache[key] = cacheData;
 
-    // Save to persistent storage (for auto-fix and future sessions)
-    await sendToStorage({
-      action: 'CACHE_GITHUB_TREE',
-      data: {
-        key: key,
-        cache: cacheData
-      }
-    });
-
     console.log('🌳 [V2] GitHub tree cached:', key, `(${cacheData.files.length} files)`);
 
-    // AUTO-FIX: Find and fix messages with missing GitHub files for this repo
-    await autoFixMissingGithubFiles(key);
+    // AUTO-FIX: Fix registered issues for this repo
+    await fixRegisteredGithubIssues(key);
   }
 
-  async function getGithubTree(owner, repo, branch) {
+  function getGithubTree(owner, repo, branch) {
     const key = `${owner}/${repo}/${branch}`;
-
-    // Try memory cache first
-    let cached = githubTreeCache[key];
-
-    // If not in memory, try persistent storage
-    if (!cached) {
-      const storageCache = await sendToStorage({
-        action: 'GET_GITHUB_TREE',
-        data: { key: key }
-      });
-
-      if (storageCache) {
-        // Load into memory cache
-        githubTreeCache[key] = storageCache;
-        cached = storageCache;
-      }
-    }
+    const cached = githubTreeCache[key];
 
     if (cached) {
       const now = new Date();
@@ -479,12 +436,6 @@
       } else {
         console.log('⚠️ [V2] GitHub cache expired:', key);
         delete githubTreeCache[key];
-
-        // Also delete from persistent storage
-        await sendToStorage({
-          action: 'DELETE_GITHUB_TREE',
-          data: { key: key }
-        });
       }
     }
 
@@ -495,13 +446,13 @@
   // EXPAND SYNC SOURCE FILES (from GitHub cache)
   // ═══════════════════════════════════════════════════════════════════
 
-  async function expandSyncSourceFiles(syncSource) {
+  function expandSyncSourceFiles(syncSource) {
     if (syncSource.type !== 'github') return [];
 
     const { owner, repo, branch, filters } = syncSource.config;
     if (!owner || !repo || !branch || !filters) return [];
 
-    const tree = await getGithubTree(owner, repo, branch);
+    const tree = getGithubTree(owner, repo, branch);
     if (!tree) {
       console.warn('⚠️ [V2] No GitHub cache for:', `${owner}/${repo}/${branch}`);
       return [];
@@ -598,6 +549,22 @@
             created_at: new Date().toISOString()
           });
           isComplete = false;
+
+          // REGISTER IN ISSUE REGISTRY for later fixing
+          if (!githubIssueRegistry[repoKey]) {
+            githubIssueRegistry[repoKey] = [];
+          }
+          // Add if not already registered
+          const alreadyRegistered = githubIssueRegistry[repoKey].some(
+            entry => entry.chatId === chatData.uuid && entry.messageIndex === index
+          );
+          if (!alreadyRegistered) {
+            githubIssueRegistry[repoKey].push({
+              chatId: chatData.uuid,
+              messageIndex: index
+            });
+            console.log(`📋 [V2] Registered issue for ${repoKey}: chat ${chatData.uuid}, message ${index}`);
+          }
         }
       }
 

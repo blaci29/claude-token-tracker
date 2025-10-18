@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -c ExtensionV2/worker-v2.js)",
+      "Bash(node -c ExtensionV2/tracker-v2.js)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
